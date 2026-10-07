@@ -115,7 +115,7 @@ async function waitStatus(page: Page, okText: RegExp, timeout = 180_000) {
 
 async function createKeyCard(page: Page, scope: string, file: string) {
   const s = page.locator(scope);
-  await s.getByRole("button", { name: "Generate key card" }).click();
+  await s.getByRole("button", { name: "Create my key card" }).click();
   await field(page, "Password").fill(PASSWORD);
   await field(page, "Repeat password").fill(PASSWORD);
   const dl = page.waitForEvent("download");
@@ -128,7 +128,7 @@ async function createKeyCard(page: Page, scope: string, file: string) {
   await s.locator('input[type="file"]').setInputFiles(path);
   await s.locator('label.field:has(> span.field-label:text-is("Password")) input').last().fill(PASSWORD);
   await s.getByRole("button", { name: "Check my key card" }).click();
-  await s.getByText("Key card saved and checked.").waitFor({ timeout: 60_000 });
+  await s.getByText("Key card saved and checked").waitFor({ timeout: 60_000 });
   return path;
 }
 
@@ -147,7 +147,7 @@ async function main() {
 
     // ---- Home, desktop + mobile
     await page.goto(`${BASE}/`);
-    await page.getByRole("heading", { name: /standing payment order/i }).waitFor();
+    await page.getByRole("heading", { name: /a hacker can.t redirect/i }).waitFor();
     await snap(page, "home");
     const mobile = await ctx.newPage();
     await mobile.setViewportSize({ width: 390, height: 844 });
@@ -159,22 +159,22 @@ async function main() {
     await mobile.goto(`${BASE}/order/2?net=mainnet`);
     await mobile.getByRole("heading", { name: "Order #2" }).waitFor({ timeout: 30_000 });
     await mobile.getByText("You're on Arc mainnet").waitFor();
-    log(`mainnet order #2: ${(await mobile.locator(".order-sentence").innerText()).replace(/\s+/g, " ")}`);
+    log(`mainnet order #2: ${(await mobile.locator(".pays").innerText()).replace(/\s+/g, " ")}`);
     await snap(mobile, "mainnet-order-2-mobile");
     await mobile.close();
 
     // ---- Open on testnet: connect (wallet on chain 1 -> app switches/adds Arc)
     await page.goto(`${BASE}/open?net=testnet`);
-    await page.locator(".card").first().getByRole("button", { name: "Connect wallet" }).click();
+    await page.locator(".step-card").first().getByRole("button", { name: "Connect wallet" }).click();
     const sw = page.getByRole("button", { name: /Switch to Arc Testnet/ }).first();
     if (await sw.isVisible({ timeout: 5000 }).catch(() => false)) await sw.click();
-    await page.getByText("Connected to Arc Testnet.").waitFor({ timeout: 30_000 });
+    await page.getByText("Connected to Arc Testnet").waitFor({ timeout: 30_000 });
     log("wallet connected; Arc testnet added and selected");
     await snap(page, "open-connected");
 
     // Form is locked until the key card is saved and checked
     if (!(await field(page, "Recipient address").isDisabled())) throw new Error("form should be disabled before the key card is saved");
-    await createKeyCard(page, ".card:nth-of-type(2)", "keycard1.json");
+    await createKeyCard(page, ".open-layout .step-card:nth-child(2)", "keycard1.json");
     await snap(page, "open-keycard-saved");
 
     const A = privateKeyToAccount(generatePrivateKey()).address;
@@ -186,10 +186,10 @@ async function main() {
     const pad = (n: number) => String(n).padStart(2, "0");
     const end = new Date(Date.now() + 2 * 86400_000);
     await field(page, "Last payment on or before").fill(`${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`);
-    await page.locator(".summary").waitFor();
-    log(`summary: ${(await page.locator(".summary").innerText()).replace(/\s+/g, " ")}`);
+    await page.locator(".summary-card").waitFor();
+    log(`summary: ${(await page.locator(".summary-list").innerText()).replace(/\s+/g, " ")}`);
     await snap(page, "open-form");
-    await page.getByRole("button", { name: "Sign and open order" }).click();
+    await page.getByRole("button", { name: "Sign and create order" }).click();
     const opened = await waitStatus(page, /is open and funded/);
     const id = /Order #(\d+)/.exec(opened)![1];
     log(`OPENED order #${id}: ${opened}`);
@@ -199,11 +199,18 @@ async function main() {
     await page.getByRole("link", { name: `Go to order #${id}` }).click();
     await page.getByRole("heading", { name: `Order #${id}` }).waitFor();
     await snap(page, "order-not-due");
-    log(`order view: ${(await page.locator(".execute h2").innerText())}`);
-    await page.getByRole("button", { name: "Execute payment" }).waitFor({ timeout: 300_000 });
-    log(`due: ${(await page.locator(".execute p").first().innerText()).replace(/\s+/g, " ")}`);
+    log(`order view: next payment in ${await page.locator(".countdown").innerText()}`);
+
+    // Hijack demo: the connected wallet (which funded this order) tries to take it over.
+    await page.getByRole("button", { name: "Try to hijack" }).click();
+    await page.locator(".result-blocked").waitFor({ timeout: 60_000 });
+    log(`HIJACK: ${(await page.locator(".result-blocked").innerText()).replace(/\s+/g, " ")}`);
+    await snap(page, "order-hijack-blocked");
+
+    await page.locator(".countdown.due").waitFor({ timeout: 300_000 });
+    log(`due: ${(await page.locator(".reward").innerText()).replace(/\s+/g, " ")}`);
     await snap(page, "order-due");
-    await page.getByRole("button", { name: "Execute payment" }).click();
+    await page.getByRole("button", { name: "Pay now" }).click();
     log(`EXECUTE: ${await waitStatus(page, /You earned/)}`);
     await snap(page, "order-executed");
 
@@ -221,7 +228,7 @@ async function main() {
 
     // ---- Payer: begin wallet cancel
     await page.goto(`${BASE}/order/${id}/payer?net=testnet`);
-    await page.getByText("You're connected as the payer.").waitFor({ timeout: 30_000 });
+    await page.getByText("You're connected as the funding wallet.").waitFor({ timeout: 30_000 });
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Start notice" }).click();
     log(`BEGIN WALLET CANCEL: ${await waitStatus(page, /Notice started/)}`);
@@ -232,12 +239,12 @@ async function main() {
     await page.locator('input[type="file"]').setInputFiles(new URL("keycard1.json", OUT).pathname.slice(1));
     await field(page, "Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Unlock key card" }).click();
-    await page.getByRole("tab", { name: "Veto cancellation" }).click();
-    await page.getByRole("button", { name: "Sign veto" }).click();
-    log(`VETO: ${await waitStatus(page, /vetoed/)}`);
+    await page.getByRole("tab", { name: "Block cancellation" }).click();
+    await page.getByRole("button", { name: "Sign and block cancellation" }).click();
+    log(`VETO: ${await waitStatus(page, /Cancellation blocked/)}`);
 
-    await page.getByRole("tab", { name: "Rotate key card" }).click();
-    await createKeyCard(page, ".tab-body", "keycard2.json");
+    await page.getByRole("tab", { name: "Replace key card" }).click();
+    await createKeyCard(page, ".tab-panel", "keycard2.json");
     await page.getByRole("button", { name: "Sign handover to the new key card" }).click();
     log(`ROTATE: ${await waitStatus(page, /only the new key card/)}`);
     if (await page.getByRole("button", { name: "Sign handover to the new key card" }).count()) throw new Error("handover button still shown after rotating");
@@ -262,9 +269,9 @@ async function main() {
     log(`CANCEL: ${await waitStatus(page, /Order cancelled/)}`);
 
     await page.goto(`${BASE}/order/${id}?net=testnet`);
-    await page.getByText("Cancelled", { exact: true }).waitFor({ timeout: 30_000 });
+    await page.locator(".badge-cancelled").waitFor({ timeout: 30_000 });
     await snap(page, "order-cancelled");
-    log(`final: ${(await page.locator(".stats").innerText()).replace(/\s+/g, " ")}`);
+    log(`final: ${(await page.locator(".metrics").innerText()).replace(/\s+/g, " ")}`);
     log("E2E PASSED");
   } finally {
     await browser.close();

@@ -1,20 +1,26 @@
 import { useRef, useState } from "react";
 import { bytesToHex, type Hex } from "viem";
+import { CircleCheck, Download, FileCheck2, KeyRound, Unlock } from "lucide-react";
 import type { Network } from "./config";
 import {
   KeyCardError, checkPassword, decryptKeyCard, downloadKeyCard, encryptKeyCard, keyCardFileName, parseKeyCardFile,
   readFileText, type KeyCard, type KeyCardFile,
 } from "./lib/keycard";
 import { generateKeyCard } from "./lib/signer";
-import { Field, Spinner } from "./ui";
+import { Field, Note } from "./ui";
 
 const errText = (e: unknown) => (e instanceof KeyCardError ? e.message : `Something went wrong: ${(e as Error)?.message ?? e}`);
 
+function Busy({ label }: { label: string }) {
+  return <div className="status busy"><span className="spinner" aria-hidden="true" /><span role="status">{label}</span></div>;
+}
+
 /**
- * Generate a key card, encrypt it, make the user download it, and refuse to
- * continue until they prove they have the file by unlocking it (§7.1 step 3).
+ * Make a key card, encrypt it with a password, make the user download it, and
+ * refuse to continue until they prove they have the file by unlocking it
+ * (ARCHITECTURE.md §7.1 step 3).
  */
-export function KeyCardCreator({ net, onReady, intro }: { net: Network; onReady: (card: KeyCard) => void; intro?: string }) {
+export function KeyCardCreator({ net, onReady }: { net: Network; onReady: (card: KeyCard) => void }) {
   const [card, setCard] = useState<KeyCard | null>(null);
   const [file, setFile] = useState<KeyCardFile | null>(null);
   const [pw, setPw] = useState("");
@@ -26,14 +32,14 @@ export function KeyCardCreator({ net, onReady, intro }: { net: Network; onReady:
   const fileInput = useRef<HTMLInputElement>(null);
 
   const generate = async () => {
-    setErr(null); setBusy("Generating your key card…");
+    setErr(null); setBusy("Creating your key card…");
     try { setCard(await generateKeyCard()); } catch (e) { setErr(errText(e)); } finally { setBusy(null); }
   };
 
   const encryptAndDownload = async () => {
     const bad = checkPassword(pw, pw2);
     if (bad) return setErr(bad);
-    setErr(null); setBusy("Encrypting…");
+    setErr(null); setBusy("Locking it with your password…");
     try {
       const f = await encryptKeyCard(card!, pw, net.name);
       setFile(f);
@@ -58,60 +64,54 @@ export function KeyCardCreator({ net, onReady, intro }: { net: Network; onReady:
 
   if (verified) {
     return (
-      <div className="keycard-done">
-        <span className="check" aria-hidden="true">✓</span>
-        <div>
-          <strong>Key card saved and checked.</strong>
-          <div className="field-hint mono">{file && keyCardFileName(file.publicKey)}</div>
-        </div>
+      <div className="done-line">
+        <CircleCheck size={20} />
+        <span>Key card saved and checked <span className="muted mono" style={{ fontWeight: 400 }}>· {file && keyCardFileName(file.publicKey)}</span></span>
       </div>
     );
   }
 
   return (
-    <div className="keycard">
-      {intro && <p>{intro}</p>}
+    <div className="stack">
       {!card && (
-        <>
-          <p className="muted">
-            Your key card is a post-quantum (SLH-DSA) key made right here in your browser. It never leaves your device.
-            It's the <strong>only</strong> thing that can change who gets paid, or cancel the order. Not your wallet, and not us.
-          </p>
-          <button className="btn" onClick={generate} disabled={!!busy}>Generate key card</button>
-        </>
+        <div><button className="btn btn-primary" onClick={generate} disabled={!!busy}><KeyRound size={18} />Create my key card</button></div>
       )}
 
       {card && !file && (
         <>
-          <p className="muted">Choose a password to encrypt the file. You'll need both the file and the password to manage your order. There is no recovery.</p>
-          <Field label="Password" hint="At least 10 characters">
-            <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-          </Field>
-          <Field label="Repeat password">
-            <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
-          </Field>
-          <button className="btn" onClick={encryptAndDownload} disabled={!!busy}>Encrypt and download</button>
+          <p className="text-2">Choose a password to lock the file. You'll need both the file and the password to make changes later. Nobody can recover them for you.</p>
+          <div className="cols-2">
+            <Field label="Password" hint="At least 10 characters">
+              <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            </Field>
+            <Field label="Repeat password">
+              <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            </Field>
+          </div>
+          <div><button className="btn btn-primary" onClick={encryptAndDownload} disabled={!!busy}><Download size={18} />Encrypt and download</button></div>
         </>
       )}
 
       {file && (
         <>
-          <div className="notice">
-            <strong>Downloaded {keyCardFileName(file.publicKey)}.</strong> Move it somewhere safe (a password manager or a USB stick).
-            {" "}<button className="link" onClick={() => downloadKeyCard(file)}>Download again</button>
+          <Note icon={Download} kind="ok">
+            Downloaded <span className="mono">{keyCardFileName(file.publicKey)}</span>. Keep it somewhere safe, like a password manager or a USB stick.{" "}
+            <button className="link" onClick={() => downloadKeyCard(file)}>Download again</button>
+          </Note>
+          <p className="text-2">To make sure you really have it, pick the file you just saved and enter its password.</p>
+          <div className="cols-2">
+            <Field label="Your key card file">
+              <input ref={fileInput} type="file" accept="application/json,.json" />
+            </Field>
+            <Field label="Password">
+              <input type="password" autoComplete="current-password" value={verifyPw} onChange={(e) => setVerifyPw(e.target.value)} />
+            </Field>
           </div>
-          <p className="muted">To make sure you really have it, open the file you saved and enter its password.</p>
-          <Field label="Your key card file">
-            <input ref={fileInput} type="file" accept="application/json,.json" />
-          </Field>
-          <Field label="Password">
-            <input type="password" autoComplete="current-password" value={verifyPw} onChange={(e) => setVerifyPw(e.target.value)} />
-          </Field>
-          <button className="btn" onClick={verify} disabled={!!busy}>Check my key card</button>
+          <div><button className="btn btn-primary" onClick={verify} disabled={!!busy}><FileCheck2 size={18} />Check my key card</button></div>
         </>
       )}
 
-      {busy && <div className="status busy"><Spinner label={busy} /></div>}
+      {busy && <Busy label={busy} />}
       {err && <div className="status error" role="alert">{err}</div>}
     </div>
   );
@@ -131,17 +131,14 @@ export function KeyCardUnlock({ expected, onUnlock }: { expected?: Hex; onUnlock
     try {
       const parsed = parseKeyCardFile(await readFileText(f));
       if (expected && parsed.publicKey.toLowerCase() !== expected.toLowerCase()) {
-        throw new KeyCardError(
-          `This key card doesn't control this order. It belongs to key ${parsed.publicKey.slice(0, 10)}…, ` +
-          `but the order is controlled by ${expected.slice(0, 10)}….`,
-        );
+        throw new KeyCardError("This key card doesn't control this order. It may be an old card that was replaced, or one for a different order.");
       }
       onUnlock(await decryptKeyCard(parsed, pw));
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
 
   return (
-    <div className="keycard">
+    <div className="stack">
       <Field label="Key card file">
         <input ref={fileInput} type="file" accept="application/json,.json" />
       </Field>
@@ -149,9 +146,10 @@ export function KeyCardUnlock({ expected, onUnlock }: { expected?: Hex; onUnlock
         <input type="password" autoComplete="current-password" value={pw}
                onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && unlock()} />
       </Field>
-      <button className="btn" onClick={unlock} disabled={busy}>{busy ? "Unlocking…" : "Unlock key card"}</button>
-      {busy && <div className="status busy"><Spinner label="Decrypting (this takes a moment on purpose)…" /></div>}
+      <div><button className="btn btn-primary" onClick={unlock} disabled={busy}><Unlock size={18} />{busy ? "Unlocking…" : "Unlock key card"}</button></div>
+      {busy && <Busy label="Unlocking (this takes a moment on purpose)…" />}
       {err && <div className="status error" role="alert">{err}</div>}
+      <p className="field-hint">The file is opened here in your browser. It isn't uploaded anywhere.</p>
     </div>
   );
 }

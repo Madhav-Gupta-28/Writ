@@ -35,7 +35,7 @@ const NOT_ACTIVE: Record<string, string> = {
   None: "There's no order with this number on this network.",
   Cancelled: "This order has been cancelled, so it can't do that any more.",
   Completed: "This order has finished: its last payment has been made.",
-  Quarantined: "This order is paused because the recipient's USDC was frozen. Its key card can point it at a new recipient or cancel it.",
+  Quarantined: "This order's recipient is frozen, so it's on hold. Its key card can choose a new recipient or cancel it.",
   Active: "This order is running normally, so that action doesn't apply.",
 };
 
@@ -79,9 +79,9 @@ export function humanError(e: unknown, ctx: ErrorContext = {}): string {
     case "NotActive":
       return NOT_ACTIVE[o?.state ?? ""] ?? "This order isn't in a state that allows that.";
     case "NotQuarantined":
-      return "This order isn't paused, so there's nothing to resolve.";
+      return "This order's recipient isn't frozen, so there's nothing to unfreeze.";
     case "NotFundable":
-      return `You can only add money to a running or paused order${o ? `; this one is ${o.state.toLowerCase()}` : ""}.`;
+      return `You can only add money to an order that is still paying or frozen${o ? `; this one is ${o.state === "Completed" ? "finished" : o.state.toLowerCase()}` : ""}.`;
     case "NotDue":
       return o ? `This payment isn't due yet. The next one is ${relative(o.nextDueAt, now)} (${formatDate(o.nextDueAt)}).`
                : "This payment isn't due yet.";
@@ -104,7 +104,7 @@ export function humanError(e: unknown, ctx: ErrorContext = {}): string {
     case "BadSignatureLength":
       return "The key card signature came out the wrong size. Please try again.";
     case "BadSignature":
-      return "The chain didn't accept this key card's signature. Either this isn't the key card for this order, or the order changed while you were signing. Reload and try again.";
+      return "That key card signature wasn't accepted. Either it's the wrong key card for this order, or the order changed while you were signing. Reload and try again.";
     case "InvalidBeneficiary":
       return "That recipient address can't be used: it's empty or it's the Writ contract itself.";
     case "BeneficiaryBlacklisted":
@@ -120,13 +120,13 @@ export function humanError(e: unknown, ctx: ErrorContext = {}): string {
     case "InvalidEndTime":
       return "The end date has to leave room for at least one more payment, and can't be in the past.";
     case "InvalidExecutorFee":
-      return "The executor reward cap has to be above zero and below the payment amount.";
+      return "The max tip has to be above zero and below the payment amount.";
     case "InsufficientInitialFunding":
       return "Fund at least the first payment.";
     case "BadAuthorizationNonce":
       return ctx.action === "fund"
         ? "The USDC authorization doesn't match this order. Please sign again."
-        : "Someone opened another order at the same moment, so your signature no longer matches the next order number. Please sign again.";
+        : "Someone created another order at the same moment, so your signature no longer matches. Please sign again.";
     case "TransferFailed":
       return "The USDC transfer failed.";
     case "PayerBlacklisted":
