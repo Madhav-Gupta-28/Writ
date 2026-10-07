@@ -1,11 +1,20 @@
 {
   "chainId": 5042002,
-  "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
-  "deployTx": "0xd50c22e09f56067a3467d5737aeafc9399cbd046cadea7a758f928d6dc219f7a",
-  "deployBlock": 65952739,
-  "deployGas": 1265964,
+  "writ": "0x720859E699B82b176e28C5182095d8FA9Bc94C87",
+  "deployTx": "0xb0ad26599454aed4e5b1ba03501bb743b26e5eb4d7857d5bdb149b96934e83d4",
+  "deployBlock": 65969017,
+  "deployGas": 2512749,
   "deployer": "0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e",
-  "source": "contracts/src/Writ.sol as of the commit that adds this file",
+  "source": "full Writ.sol (feat/contract-full) as of the commit that updates this file",
   "explorer": "https://explorer.testnet.arc.io",
-  "note": "Testnet only. Runtime bytecode verified equal to the local forge build."
+  "note": "Testnet only. Runtime bytecode verified equal to the local forge build.",
+  "previous": [
+    {
+      "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
+      "deployTx": "0xd50c22e09f56067a3467d5737aeafc9399cbd046cadea7a758f928d6dc219f7a",
+      "deployGas": 1265964,
+      "source": "core slice only (open/fund/execute/amend), feat/contract-core",
+      "flowRecord": "deployments/flow-testnet-core.json"
+    }
+  ]
 }

@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The **Arc testnet** deployment in `deployments/arc-testnet.json` is the earlier core slice (open/fund/execute/amend only); the full contract is not deployed yet. `npm run flow` replays the demo there with real transactions (`deployments/flow-testnet.json`). Nothing on mainnet.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The full contract is deployed on **Arc testnet** (`deployments/arc-testnet.json`; the earlier core-slice deployment is listed under `previous`). `npm run flow` replays the full demo there with real transactions (`deployments/flow-testnet.json`), and `node --env-file=.env scripts/auth-check.ts` re-checks `openWithAuthorization` against real testnet USDC. Nothing on mainnet.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 

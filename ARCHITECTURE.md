@@ -147,11 +147,11 @@ This is the whole design, stated once.
 
 | | Authority | Frequency over a 10-year monthly obligation | Gas | Cost |
 | --- | --- | --- | --- | --- |
-| `execute` | **nobody** — permissionless | 120 | 123,148 **measured** | $0.0025 |
+| `execute` | **nobody** — permissionless | 120 | 125,696 **measured** | $0.0025 |
 | `amend` / `cancel` / `rotateKey` | **SLH-DSA only** | 0–3 typical | 433,953 **measured** | $0.0087 |
 
 The incumbent shape pays $0.0087 × 120 = **$1.04** in verifications. Writ
-pays $0.0025 × 120 + ~2 amendments = **$0.31**.
+pays $0.0025 × 120 + ~2 amendments = **$0.32**.
 
 The saving is not the point. The point is that the cost curve falls out of
 putting each authority where it belongs, and a design whose costs are correct
@@ -1124,9 +1124,20 @@ for a new signature. `shared/` computes the same nonce in TypeScript, and a
 committed fixture checks it against `openAuthNonce` the same way as
 `digestFor` (§11.1).
 
-**ASSUMPTION:** §3.8 proved `receiveWithAuthorization` exists on Arc's USDC but
-only exercised its failure path. A contract calling it successfully is checked
-by fork test §11.3 row 7 before anything depends on it.
+**Verified live, 2026-10-07** (was an ASSUMPTION). §3.8 only exercised
+`receiveWithAuthorization`'s failure path. `scripts/auth-check.ts` ran
+`openWithAuthorization` against the **real** Arc testnet USDC, with no mock and
+no `approve`:
+
+- the signature was made against the real domain (name `"USDC"`, version
+  `"2"`), and that domain's `DOMAIN_SEPARATOR` matches the standard EIP-712
+  construction
+- USDC moved from the payer to Writ
+- `authorizationState(payer, nonce)` went `false → true`
+- replaying the same authorization reverted `BadAuthorizationNonce`
+- 285,453 gas
+
+Result in `deployments/auth-check-testnet.json`.
 
 #### Topping up
 
@@ -1262,27 +1273,31 @@ All figures at the measured 20 Gwei floor (§3.2), `cost = gas × 2e-8`.
 
 | Action | Gas | Cost | Source |
 | --- | --- | --- | --- |
-| Deploy `Writ` | **1,265,964** | $0.025 | **measured**, Arc testnet 2026-10-07 |
+| Deploy `Writ` (full contract) | **2,512,749** | $0.050 | **measured**, Arc testnet 2026-10-07 (the core slice alone was 1,265,964) |
 | `open` + initial funding | 248,373 | $0.0050 | **measured**, Arc testnet 2026-10-07 (`open` via `transferFrom`; the `approve` is a separate tx) |
+| `openWithAuthorization` (open + fund, one tx, no approve) | 285,453 | $0.0057 | **measured**, Arc testnet 2026-10-07, real USDC |
 | `fundWithAuthorization` | ~120,000 | $0.0024 | **ESTIMATE** |
-| `execute` (pay one period) | 123,148 | $0.0025 | **measured**, Arc testnet 2026-10-07, before the quarantine pre-screen is added |
+| `execute` (pay one period) | 125,696 | $0.0025 | **measured**, Arc testnet 2026-10-07, full contract incl. the `isBlacklisted` pre-screen (core slice without it: 123,148) |
 | `execute` (quarantine transition) | ~75,000 | $0.0015 | **ESTIMATE** |
 | **any PQ action** | **433,953** | **$0.0087** | **measured, §3.5** |
 | `amend` on testnet, real verification | 421,483 | $0.0084 | **measured**, Arc testnet 2026-10-07 |
+| `rotateKey` / `vetoWalletCancel`, real verification | 399,157 / 395,728 | $0.0080 / $0.0079 | **measured**, Arc testnet 2026-10-07 |
+| `beginWalletCancel` | 31,018 | $0.0006 | **measured**, Arc testnet 2026-10-07 |
+| `cancelByPq` with refund, real verification | 434,312 | $0.0087 | **measured**, Arc testnet 2026-10-07 |
 
 A 10-year monthly obligation, 120 periods, two amendments:
 
 ```
 open                     $0.0050
-120 × execute            $0.2955
+120 × execute            $0.3017
 2   × PQ amendment       $0.0174
                          ───────
-total lifetime gas       $0.3179
+total lifetime gas       $0.3241
 ```
 
 The same obligation under the incumbent shape, where every payment needs a PQ
 signature: `120 × $0.0087 = $1.0440`, plus the payer must be present and holding
-the key card 120 times. **Writ is 3.3× cheaper and requires the key zero
+the key card 120 times. **Writ is 3.2× cheaper and requires the key zero
 times.** The second number is the one that matters.
 
 ### 6.2 The 10¹² conversion, in full
@@ -1603,8 +1618,11 @@ this indirection. Not yet tried.
 6. **Gas pins:** assert one PQ action costs 433,953 ± 5%, and record `execute`'s
    real cost to replace the §6.1 estimates with measurements.
 7. **`receiveWithAuthorization` succeeds when Writ calls it.** Sign a real
-   EIP-3009 authorization against the mainnet USDC domain and run
-   `openWithAuthorization` on a fork. Retires the **ASSUMPTION** in §5.8.
+   EIP-3009 authorization against the USDC domain and run
+   `openWithAuthorization`. **Done live on Arc testnet** rather than on a fork,
+   because a fork can't run the real USDC (§11.3 intro): `scripts/auth-check.ts`.
+   It passed, and the §5.8 ASSUMPTION is retired. Repeat on mainnet with a
+   few cents before relying on it there.
 8. **Quarantine end to end — this is the quarantine demo.**
    **Implemented** in `contracts/test/WritQuarantineFork.t.sol` on an **Arc
    testnet** fork (same precompile as mainnet; the committed signatures in
@@ -1768,9 +1786,9 @@ log history (§3.9).
 
 | Item | Gas | Cost |
 | --- | --- | --- |
-| Deploy | **1,265,964** measured | $0.025 |
+| Deploy | **2,512,749** measured | $0.050 |
 | `open` + fund | 248,373 measured | $0.0050 |
-| `execute` | 123,148 measured | $0.0025 |
+| `execute` | 125,696 measured | $0.0025 |
 | **PQ action — measured** | **433,953** | **$0.0087** |
 
 ### 13.2 Total to build and demo this project
