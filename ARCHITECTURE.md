@@ -147,11 +147,11 @@ This is the whole design, stated once.
 
 | | Authority | Frequency over a 10-year monthly obligation | Gas | Cost |
 | --- | --- | --- | --- | --- |
-| `execute` | **nobody** — permissionless | 120 | ~110,000 **ESTIMATE** | $0.0022 |
+| `execute` | **nobody** — permissionless | 120 | 123,148 **measured** | $0.0025 |
 | `amend` / `cancel` / `rotateKey` | **SLH-DSA only** | 0–3 typical | 433,953 **measured** | $0.0087 |
 
 The incumbent shape pays $0.0087 × 120 = **$1.04** in verifications. Writ
-pays $0.0022 × 120 + ~2 amendments = **$0.28**.
+pays $0.0025 × 120 + ~2 amendments = **$0.31**.
 
 The saving is not the point. The point is that the cost curve falls out of
 putting each authority where it belongs, and a design whose costs are correct
@@ -838,7 +838,7 @@ function execute(uint256 id) external nonReentrant {
 separate calls catch it up, each paid. This bounds gas per transaction, keeps the
 accounting trivially auditable, and means a long gap cannot produce a surprise
 lump-sum transfer. The cost is that a long gap needs several transactions; at
-$0.0022 each that is acceptable.
+$0.0025 each that is acceptable.
 
 ### 5.5 `_payExecutor`
 
@@ -1056,6 +1056,7 @@ Validation, in order:
 | `pqKey != bytes32(0)` | `InvalidPqKey` | an all-zero key is not a key |
 | `amountPerPeriod > 0` | `ZeroAmount` | |
 | `MIN_PERIOD <= periodSeconds <= MAX_PERIOD` | `InvalidPeriod` | bounds the `nextDueAt` arithmetic |
+| `startAt >= block.timestamp` | `StartInPast` | a backdated start would make every missed period payable at once. Clients should pick a start a little in the future, because the transaction may be included a few seconds after it is signed |
 | `endTime > startAt` and `endTime >= startAt + periodSeconds` | `InvalidEndTime` | at least one period must be payable |
 | `maxExecutorFee > 0 && maxExecutorFee < amountPerPeriod` | `InvalidExecutorFee` | the fee can never exceed the payment |
 | `initialFunding >= amountPerPeriod` | `InsufficientInitialFunding` | an obligation that cannot pay its first period is not an obligation |
@@ -1203,6 +1204,7 @@ error BeneficiaryBlacklisted();
 error InvalidPqKey();               // bytes32(0)
 error ZeroAmount();                 // amountPerPeriod == 0, or a zero top-up
 error InvalidPeriod();              // outside [MIN_PERIOD, MAX_PERIOD]
+error StartInPast();                // open with startAt < block.timestamp
 error InvalidEndTime();
 error InvalidExecutorFee();         // 0, or >= amountPerPeriod
 error InsufficientInitialFunding(); // initialFunding < amountPerPeriod
@@ -1228,26 +1230,27 @@ All figures at the measured 20 Gwei floor (§3.2), `cost = gas × 2e-8`.
 
 | Action | Gas | Cost | Source |
 | --- | --- | --- | --- |
-| Deploy `Writ` | ~2,500,000 | $0.050 | **ESTIMATE** |
-| `open` + initial funding | ~210,000 | $0.0042 | **ESTIMATE** |
+| Deploy `Writ` | **1,265,964** | $0.025 | **measured**, Arc testnet 2026-10-07 |
+| `open` + initial funding | 248,373 | $0.0050 | **measured**, Arc testnet 2026-10-07 (`open` via `transferFrom`; the `approve` is a separate tx) |
 | `fundWithAuthorization` | ~120,000 | $0.0024 | **ESTIMATE** |
-| `execute` (pay one period) | ~110,000 | $0.0022 | **ESTIMATE** |
+| `execute` (pay one period) | 123,148 | $0.0025 | **measured**, Arc testnet 2026-10-07, before the quarantine pre-screen is added |
 | `execute` (quarantine transition) | ~75,000 | $0.0015 | **ESTIMATE** |
 | **any PQ action** | **433,953** | **$0.0087** | **measured, §3.5** |
+| `amend` on testnet, real verification | 421,483 | $0.0084 | **measured**, Arc testnet 2026-10-07 |
 
 A 10-year monthly obligation, 120 periods, two amendments:
 
 ```
-open                     $0.0042
-120 × execute            $0.2640
+open                     $0.0050
+120 × execute            $0.2955
 2   × PQ amendment       $0.0174
                          ───────
-total lifetime gas       $0.2856
+total lifetime gas       $0.3179
 ```
 
 The same obligation under the incumbent shape, where every payment needs a PQ
 signature: `120 × $0.0087 = $1.0440`, plus the payer must be present and holding
-the key card 120 times. **Writ is 3.7× cheaper and requires the key zero
+the key card 120 times. **Writ is 3.3× cheaper and requires the key zero
 times.** The second number is the one that matters.
 
 ### 6.2 The 10¹² conversion, in full
@@ -1693,9 +1696,9 @@ log history (§3.9).
 
 | Item | Gas | Cost |
 | --- | --- | --- |
-| Deploy | ~2,500,000 **EST** | $0.050 |
-| `open` + fund | ~210,000 **EST** | $0.0042 |
-| `execute` | ~110,000 **EST** | $0.0022 |
+| Deploy | **1,265,964** measured | $0.025 |
+| `open` + fund | 248,373 measured | $0.0050 |
+| `execute` | 123,148 measured | $0.0025 |
 | **PQ action — measured** | **433,953** | **$0.0087** |
 
 ### 13.2 Total to build and demo this project

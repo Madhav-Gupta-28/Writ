@@ -1,0 +1,11 @@
+{
+  "chainId": 5042002,
+  "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
+  "deployTx": "0xd50c22e09f56067a3467d5737aeafc9399cbd046cadea7a758f928d6dc219f7a",
+  "deployBlock": 65952739,
+  "deployGas": 1265964,
+  "deployer": "0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e",
+  "source": "contracts/src/Writ.sol as of the commit that adds this file",
+  "explorer": "https://explorer.testnet.arc.io",
+  "note": "Testnet only. Runtime bytecode verified equal to the local forge build."
+}
