@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The full contract is deployed on **Arc mainnet** at `0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`, Sourcify exact match (`deployments/arc-mainnet.json`). One live order (#2, 0.01 USDC/day to 2026-11-01) is running there. Its key card is only in `.keycards/` (git-ignored). The same address on **testnet** is the old core slice; the full testnet contract is `0x720859E699B82b176e28C5182095d8FA9Bc94C87` (`deployments/arc-testnet.json`). `npm run flow` replays the full demo with real transactions.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. The frontend is in `web/` (Vite + React + wagmi, static). The full contract is deployed on **Arc mainnet** at `0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`, Sourcify exact match (`deployments/arc-mainnet.json`). One live order (#2, 0.01 USDC/day to 2026-11-01) is running there. Its key card is only in `.keycards/` (git-ignored). The same address on **testnet** is the old core slice; the full testnet contract is `0x720859E699B82b176e28C5182095d8FA9Bc94C87` (`deployments/arc-testnet.json`). `npm run flow` replays the full demo with real transactions.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 
@@ -57,6 +57,12 @@ npm run deploy [-- --mainnet]       # deploy + record in deployments/arc-<net>.j
 npm run auth-check [-- --mainnet]   # live openWithAuthorization check (a few cents, refunded)
 npm run open-order [-- --mainnet]   # the long-running demo order
 npm run flow [-- --mainnet]         # the full lifecycle demo (~1 h)
+npm run abi                         # after changing Writ.sol: forge build, then export the ABI to shared/abi/writ.ts
+
+# frontend (web/): testnet by default, ?net=mainnet to switch; networks in web/src/config.ts
+cd web && npm install && npm run dev     # http://localhost:5173
+cd web && npm test                       # unit tests (key card crypto, money/time, errors)
+cd web && npm run e2e                    # builds, then drives real Chrome on testnet (~4 min, real txs)
 node scripts/gen-fixtures.ts --pq   # also regenerate the real-signature fork fixture
 cd contracts && forge test --match-test <name>
 ```

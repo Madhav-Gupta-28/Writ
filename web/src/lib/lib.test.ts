@@ -1,0 +1,129 @@
+import { describe, expect, it } from "vitest";
+import { slh_dsa_sha2_128s as S } from "@noble/post-quantum/slh-dsa.js";
+import { BaseError, ContractFunctionRevertedError, encodeErrorResult, type Address } from "viem";
+import { writAbi } from "../../../shared/abi/writ.ts";
+import { humanError } from "./errors";
+import { duration, formatUsdc, parseUsdc, relative } from "./format";
+import { decryptKeyCard, encryptKeyCard, KeyCardError, parseKeyCardFile, checkPassword } from "./keycard";
+import { estimateReward, paymentsLeft, runway, type Order } from "./order";
+import { suggestedFeeCap } from "../pages/Open";
+
+const A = "0x00000000000000000000000000000000000000a1" as Address;
+
+const order = (o: Partial<Order> = {}): Order => ({
+  id: 2n, payer: A, beneficiary: A, amountPerPeriod: 10_000n, balance: 360_000n, maxExecutorFee: 5_000n,
+  periodSeconds: 86_400n, nextDueAt: 1_000_000n, endTime: 1_000_000n + 23n * 86_400n + 3600n, pqNonce: 0n,
+  cancelReadyAt: 0n, periodsPaid: 1, state: "Active", pqKey: "0x00", ref: "0x00", ...o,
+});
+
+describe("key card file", () => {
+  const kp = S.keygen(new Uint8Array(48).fill(7));
+  const card = { publicKey: kp.publicKey, secretKey: kp.secretKey };
+
+  it("round-trips with the right password", async () => {
+    const f = await encryptKeyCard(card, "correct horse battery");
+    const back = await decryptKeyCard(parseKeyCardFile(JSON.stringify(f)), "correct horse battery");
+    expect(Buffer.from(back.secretKey)).toEqual(Buffer.from(card.secretKey));
+    expect(f.publicKey).toBe("0x" + Buffer.from(card.publicKey).toString("hex"));
+    expect(JSON.stringify(f)).not.toContain(Buffer.from(card.secretKey).toString("hex")); // secret is not in the clear
+  }, 30_000);
+
+  it("rejects a wrong password", async () => {
+    const f = await encryptKeyCard(card, "correct horse battery");
+    await expect(decryptKeyCard(f, "wrong password!!")).rejects.toThrow(KeyCardError);
+  }, 30_000);
+
+  it("rejects a file whose public key was swapped", async () => {
+    const f = await encryptKeyCard(card, "correct horse battery");
+    const other = S.keygen(new Uint8Array(48).fill(9)).publicKey;
+    const tampered = { ...f, publicKey: ("0x" + Buffer.from(other).toString("hex")) as `0x${string}` };
+    await expect(decryptKeyCard(tampered, "correct horse battery")).rejects.toThrow(/Wrong password|changed/);
+  }, 30_000);
+
+  it("rejects a tampered ciphertext", async () => {
+    const f = await encryptKeyCard(card, "correct horse battery");
+    const flipped = f.ciphertext.slice(0, -2) + (f.ciphertext.endsWith("00") ? "01" : "00");
+    await expect(decryptKeyCard({ ...f, ciphertext: flipped as `0x${string}` }, "correct horse battery")).rejects.toThrow(KeyCardError);
+  }, 30_000);
+
+  it("refuses files that aren't key cards", () => {
+    expect(() => parseKeyCardFile("not json")).toThrow(/isn't a Writ key card/);
+    expect(() => parseKeyCardFile('{"format":"something"}')).toThrow(/isn't a Writ key card/);
+  });
+
+  it("password rules", () => {
+    expect(checkPassword("short")).toMatch(/at least 10/);
+    expect(checkPassword("long enough pw", "different pw!")).toMatch(/don't match/);
+    expect(checkPassword("long enough pw", "long enough pw")).toBeNull();
+  });
+});
+
+describe("money and time", () => {
+  it("parses USDC with at most 6 decimals", () => {
+    expect(parseUsdc("12.5")).toBe(12_500_000n);
+    expect(parseUsdc("0.01")).toBe(10_000n);
+    expect(parseUsdc(".5")).toBe(500_000n);
+    expect(parseUsdc("1,000")).toBe(1_000_000_000n);
+    expect(parseUsdc("0.0000001")).toBeNull();
+    expect(parseUsdc("abc")).toBeNull();
+    expect(parseUsdc("-1")).toBeNull();
+  });
+  it("formats USDC", () => {
+    expect(formatUsdc(10_000n)).toBe("0.01");
+    expect(formatUsdc(1_234_567_890n)).toBe("1,234.56789");
+    expect(formatUsdc(5_000_000n)).toBe("5.00");
+  });
+  it("relative times read naturally", () => {
+    expect(relative(1000n + 42n * 60n, 1000n)).toBe("in 42 min");
+    expect(relative(1000n, 1000n + 3n * 86400n)).toBe("3 days ago");
+    expect(duration(3600 + 300)).toBe("1 h 5 min");
+  });
+});
+
+describe("order arithmetic", () => {
+  it("counts remaining payments and runway", () => {
+    const o = order();
+    expect(paymentsLeft(o)).toBe(24n);               // due day 0..23
+    const r = runway(o);
+    expect(r.funded).toBe(24n);                      // 360,000 / 15,000
+    expect(r.fullyFunded).toBe(true);
+    const low = runway(order({ balance: 40_000n }));
+    expect(low.funded).toBe(2n);
+    expect(low.fullyFunded).toBe(false);
+    expect(low.shortfall).toBe(22n * 15_000n - 10_000n);
+  });
+  it("estimates the executor reward with the cap and the 1e12 conversion", () => {
+    const r = estimateReward(order(), 20_000_000_000n);
+    expect(r.fee).toBe(5_000n);                      // meter+tip ~13,100 capped at 5,000
+    expect(r.gasCost).toBe((125_696n * 20_000_000_000n) / 10n ** 12n);
+    expect(estimateReward(order({ maxExecutorFee: 50_000n }), 20_000_000_000n).fee).toBe(10_000n + 3_113n);
+  });
+  it("suggests a fee cap below the amount", () => {
+    expect(suggestedFeeCap(10_000n)).toBe(5_000n);
+    expect(suggestedFeeCap(4_000n)).toBe(2_000n);
+    expect(suggestedFeeCap(100_000_000n)).toBe(50_000n);
+  });
+});
+
+describe("human errors", () => {
+  const revert = (errorName: string) => {
+    const data = encodeErrorResult({ abi: writAbi, errorName: errorName as never });
+    const inner = new ContractFunctionRevertedError({ abi: writAbi, data, functionName: "execute" });
+    return new BaseError("Execution reverted", { cause: inner });
+  };
+  it("NotDue says when the next payment is", () => {
+    const msg = humanError(revert("NotDue"), { order: order({ nextDueAt: 1000n + 42n * 60n }), now: 1000n });
+    expect(msg).toMatch(/isn't due yet\. The next one is in 42 min/);
+  });
+  it("no raw revert names leak for any Writ error", () => {
+    const names = writAbi.filter((x) => x.type === "error").map((x) => x.name);
+    for (const n of names) {
+      const msg = humanError(revert(n), { order: order(), now: 1000n });
+      expect(msg, n).not.toContain(n);
+      expect(msg.length, n).toBeGreaterThan(15);
+    }
+  });
+  it("wallet rejection", () => {
+    expect(humanError(Object.assign(new Error("User rejected the request."), { code: 4001 }))).toMatch(/cancelled this in your wallet/);
+  });
+});
