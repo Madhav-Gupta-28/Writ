@@ -122,6 +122,7 @@ contract Writ {
     error InvalidPqKey();
     error ZeroAmount();
     error InvalidPeriod();
+    error StartInPast();
     error InvalidEndTime();
     error InvalidExecutorFee();
     error InsufficientInitialFunding();
@@ -159,6 +160,8 @@ contract Writ {
         _checkBeneficiary(t.beneficiary);
         if (t.pqKey == bytes32(0)) revert InvalidPqKey();
         _checkAmountAndPeriod(t.amountPerPeriod, t.periodSeconds);
+        // A past start would make every missed period payable at once.
+        if (t.startAt < block.timestamp) revert StartInPast();
         if (t.endTime <= t.startAt || uint256(t.endTime) < uint256(t.startAt) + t.periodSeconds) {
             revert InvalidEndTime();
         }

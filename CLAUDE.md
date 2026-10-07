@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the core slice of `contracts/src/Writ.sol` exists (open, fund, execute, amend, the PQ path) with tests. Not yet built: quarantine, `cancelByPq`, `rotateKey`, `resolveQuarantine`, the wallet-cancel dance, `reclaim`, the EIP-3009 functions, and the frontend. Nothing is deployed.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the core slice of `contracts/src/Writ.sol` exists (open, fund, execute, amend, the PQ path) with tests. Not yet built: quarantine, `cancelByPq`, `rotateKey`, `resolveQuarantine`, the wallet-cancel dance, `reclaim`, the EIP-3009 functions, and the frontend. Deployed on **Arc testnet only** (address and tx in `deployments/arc-testnet.json`); `npm run flow` replays the full demo there with real transactions (`deployments/flow-testnet.json`). Nothing on mainnet.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 

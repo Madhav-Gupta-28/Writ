@@ -88,6 +88,18 @@ contract WritTest is WritBase {
         _expectOpenRevert(t, AMOUNT, Writ.InvalidPeriod.selector);
     }
 
+    function test_open_rejectsStartInPast() public {
+        Writ.Terms memory t = _terms();
+        t.startAt = uint64(block.timestamp) - 1;
+        _expectOpenRevert(t, AMOUNT, Writ.StartInPast.selector);
+    }
+
+    function test_open_acceptsStartNow() public {
+        Writ.Terms memory t = _terms();
+        assertEq(t.startAt, block.timestamp);
+        _open(t, AMOUNT);
+    }
+
     function test_open_rejectsEndTimeNotAfterStart() public {
         Writ.Terms memory t = _terms();
         t.endTime = t.startAt;
