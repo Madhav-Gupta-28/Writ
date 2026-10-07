@@ -37,12 +37,7 @@ The contract is a single file, `Writ.sol`. It has no owner, pause, proxy, `deleg
 
 ## Known spec issues to fix while implementing
 
-- `reference` is a reserved word in Solidity. Rename the struct field and the event parameters.
-- "Open and fund in one transaction" requires a combined `openWithAuthorization`. The EIP-3009 nonce must be bound to the obligation id, or a signed authorization can be submitted under a different id.
-- `_credit` must reject obligations in `None`, `Cancelled` or `Completed` state, or funds sent to them are stranded.
-- `amend` doesn't say which states it allows, how `nextDueAt` changes when the period changes, or how the new `endTime` is bounded.
-- Only `isBlacklisted` triggers quarantine. You can't blocklist an address on testnet or mainnet, so demonstrate quarantine in a fork test that mocks `isBlacklisted`.
-- Expect stack-too-deep errors (14-field public struct getter, the 8-parameter `amend`). Compile with `via_ir`.
+None open. Resolved in the spec on `spec/fixes`: `reference` → `ref`, `openWithAuthorization` with id- and terms-bound EIP-3009 nonces (§5.8), `_credit` state check, `via_ir` (§12.1), the full error list (§5.10), refunds to a blocklisted payer revert `PayerBlacklisted` (§5.7), `amend` rules — `Active` only, `nextDueAt` kept (§5.6), and the quarantine demo is the mainnet fork test that mocks `isBlacklisted` (§11.3 row 8).
 
 ## Commands
 
