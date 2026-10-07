@@ -16,5 +16,22 @@
       "source": "core slice only (open/fund/execute/amend), feat/contract-core",
       "flowRecord": "deployments/flow-testnet-core.json"
     }
-  ]
+  ],
+  "liveOrder": {
+    "id": "4",
+    "beneficiary": "0x41f67ADF4067238E5Fd70a5Bf9726638B9396ED1",
+    "amountPerPeriod": "10000",
+    "periodSeconds": "86400",
+    "startAt": "2026-10-07T14:26:07Z",
+    "endTime": "2026-11-01T00:00:00Z",
+    "maxExecutorFee": "5000",
+    "funding": "375000",
+    "payments": "25",
+    "pqKey": "0x97f04b8961781c0cf3e5d8cd1a55fb67b9e6ab0a7081358f330c50162ca13913",
+    "openTx": "0xef1dad9b536205937d54b5c29ca4df230d5112a8defc136d2fd1f7057201020d",
+    "openLink": "https://explorer.testnet.arc.io/tx/0xef1dad9b536205937d54b5c29ca4df230d5112a8defc136d2fd1f7057201020d",
+    "firstPaymentTx": "0xa54ec1a7df866ffd086092ade115300b8e5b78978823874b212ab91eb776be53",
+    "firstPaymentLink": "https://explorer.testnet.arc.io/tx/0xa54ec1a7df866ffd086092ade115300b8e5b78978823874b212ab91eb776be53",
+    "note": "Left running. Key card and beneficiary key are in .keycards/ (git-ignored), not in the repo."
+  }
 }

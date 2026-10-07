@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The full contract is deployed on **Arc testnet** (`deployments/arc-testnet.json`; the earlier core-slice deployment is listed under `previous`). `npm run flow` replays the full demo there with real transactions (`deployments/flow-testnet.json`), and `node --env-file=.env scripts/auth-check.ts` re-checks `openWithAuthorization` against real testnet USDC. Nothing on mainnet.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The full contract is deployed on **Arc mainnet** at `0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`, Sourcify exact match (`deployments/arc-mainnet.json`). One live order (#2, 0.01 USDC/day to 2026-11-01) is running there. Its key card is only in `.keycards/` (git-ignored). The same address on **testnet** is the old core slice; the full testnet contract is `0x720859E699B82b176e28C5182095d8FA9Bc94C87` (`deployments/arc-testnet.json`). `npm run flow` replays the full demo with real transactions.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 
@@ -49,6 +49,14 @@ npm run test:sol         # Foundry unit + digest-parity tests; fork tests skip t
 npm run test:fork        # every *ForkTest against Arc testnet (network), incl. the quarantine demo
 node scripts/gen-fixtures.ts --pq-resolve   # regenerate the quarantine fork test's real signatures
 npm run fixtures         # regenerate shared/fixtures/digest.json after changing digest.ts
+
+# scripts that touch a chain: TESTNET by default; --mainnet is required for mainnet,
+# which prints MAINNET and waits 5 s before the first transaction
+npm run rehearse [-- --mainnet]     # §11.5 free eth_call rehearsal, sends nothing
+npm run deploy [-- --mainnet]       # deploy + record in deployments/arc-<net>.json
+npm run auth-check [-- --mainnet]   # live openWithAuthorization check (a few cents, refunded)
+npm run open-order [-- --mainnet]   # the long-running demo order
+npm run flow [-- --mainnet]         # the full lifecycle demo (~1 h)
 node scripts/gen-fixtures.ts --pq   # also regenerate the real-signature fork fixture
 cd contracts && forge test --match-test <name>
 ```

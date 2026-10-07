@@ -12,11 +12,12 @@
 // the run takes a little over an hour, almost all of it waiting.
 //
 // Needs `forge build` and a funded key in .env.
-// Usage: node --env-file=.env scripts/flow.ts   (or: npm run flow)
+// Usage: node --env-file=.env scripts/flow.ts [--mainnet]   (or: npm run flow)
+// Testnet by default.
 // Resume an interrupted run from the wait (steps 9-12), with the current key card:
 //   node --env-file=.env scripts/flow.ts --resume <orderId> <.keycards/...-card2.json>
 //
-// Writes deployments/flow-testnet.json with every transaction. Demo key cards
+// Writes deployments/flow-<testnet|mainnet>.json with every transaction. Demo key cards
 // are saved under .keycards/ (git-ignored); they control only this demo order.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -25,7 +26,8 @@ import { BaseError, ContractFunctionRevertedError, keccak256, parseEventLogs, to
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { Action, EMPTY_PAYLOAD, amendPayload, digestFor, rotateKeyPayload } from "../shared/digest.ts";
 import {
-  CHAIN_ID, USDC, WRIT, balanceOf, clock, link, now, obligation, payer, pub, root, send, sleep, usd, usdcAbi, writAbi,
+  CHAIN_ID, MAINNET, USDC, WRIT, assertChain, balanceOf, clock, link, now, obligation, payer, pub, requireWrit, root, send,
+  sleep, usd, usdcAbi, writAbi,
 } from "./arc.ts";
 
 const PERIOD = 3600n;            // MIN_PERIOD
@@ -35,11 +37,11 @@ const FUNDING = 300_000n;        // 0.30 USDC: two periods + fees, the rest is r
 const START_DELAY = 20n;         // startAt must not be in the past when open lands (StartInPast)
 
 const RESUME = process.argv.indexOf("--resume");
-const recordFile = new URL("deployments/flow-testnet.json", root);
+const recordFile = new URL(`deployments/flow-${MAINNET ? "mainnet" : "testnet"}.json`, root);
 const steps: { step: string; tx?: Hash; link?: string; note?: string }[] =
   RESUME >= 0 && existsSync(recordFile) ? JSON.parse(readFileSync(recordFile, "utf8")).steps : [];
 const record = () =>
-  writeFileSync(new URL("deployments/flow-testnet.json", root),
+  writeFileSync(recordFile,
     JSON.stringify({ writ: WRIT, payer: payer.address, steps }, null, 2) + "\n");
 
 function log(step: string, tx?: Hash, note?: string) {
@@ -101,7 +103,8 @@ function saveCard(name: string, card: { publicKey: Uint8Array; secretKey: Uint8A
 }
 
 async function main() {
-  if ((await pub.getChainId()) !== CHAIN_ID) throw new Error("RPC is not Arc testnet");
+  requireWrit();
+  await assertChain();
   console.log(`Writ    ${WRIT}`);
   console.log(`payer   ${payer.address}  (${usd(await balanceOf(payer.address))})`);
 
@@ -218,7 +221,7 @@ async function finish(id: bigint, B: Address, A: Address, card2Secret: Uint8Arra
     `refunded ${usd(cancelled[0]?.args.refunded ?? 0n)} to the payer, state ${o8.state}, order balance ${usd(o8.balance)}, gas ${cTx.receipt.gasUsed}`);
 
   console.log(`\nDone. Order #${id}: A got ${usd(await balanceOf(A))}, B got ${usd(await balanceOf(B))}, ` +
-    `payer refunded ${usd(cancelled[0]?.args.refunded ?? 0n)}. Record: deployments/flow-testnet.json`);
+    `payer refunded ${usd(cancelled[0]?.args.refunded ?? 0n)}. Record: ${recordFile.pathname.split("/").slice(-2).join("/")}`);
 }
 
 async function resume() {

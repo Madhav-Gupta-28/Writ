@@ -1621,8 +1621,9 @@ this indirection. Not yet tried.
    EIP-3009 authorization against the USDC domain and run
    `openWithAuthorization`. **Done live on Arc testnet** rather than on a fork,
    because a fork can't run the real USDC (§11.3 intro): `scripts/auth-check.ts`.
-   It passed, and the §5.8 ASSUMPTION is retired. Repeat on mainnet with a
-   few cents before relying on it there.
+   It passed, and the §5.8 ASSUMPTION is retired. **Repeated on mainnet**
+   with 0.02 USDC on 2026-10-07 and passed (`deployments/auth-check-mainnet.json`);
+   the test order was cancelled and refunded in full.
 8. **Quarantine end to end — this is the quarantine demo.**
    **Implemented** in `contracts/test/WritQuarantineFork.t.sol` on an **Arc
    testnet** fork (same precompile as mainnet; the committed signatures in
@@ -1687,6 +1688,31 @@ cast rpc eth_call \
 
 Every fact in §3 was established this way. Do the full flow here before
 deploying; it costs nothing and it is the cheapest bug-finding available.
+
+**Implemented** as `scripts/rehearse.ts` plus `contracts/script/MainnetRehearsal.sol`.
+It ran before the mainnet deploy on 2026-10-07 (block 24,743,854) and passed
+13 of 13. It is one `eth_call` with two injected accounts:
+
+- **Writ's runtime code.** Storage slot 1 (`nextId`) is set to 1, because
+  injected code skips the constructor.
+- **A harness with a 1 USDC native balance.** It shows up as 1.000000 on the
+  ERC-20 interface, confirming §2.6 live.
+
+The harness runs these steps against real mainnet USDC and the real precompile:
+
+- open
+- execute, paying the beneficiary through real USDC
+- `amend` with a real SLH-DSA signature
+- a wrong signature, which fails `BadSignature`, and a 7,855-byte one, which
+  fails `BadSignatureLength`
+- `cancelByPq` with a real signature, refunding the payer
+- `openWithAuthorization` with a real EIP-3009 signature, drawing on the
+  payer's real balance
+
+The signatures commit to the order's dates, so the script pins one block and
+asks the harness for the `block.timestamp` the node uses before signing.
+`eth_estimateGas` on the creation transaction priced the deploy at 2,533,859
+gas; it actually used 2,512,749. Run `npm run rehearse -- --mainnet`.
 
 ---
 

@@ -1,0 +1,31 @@
+{
+  "writ": "0xff70bc435c29400fe5c988b92dcc6c17d98b5652",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "payer": "0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e",
+  "results": [
+    {
+      "check": "TS openAuthNonce matches the deployed contract",
+      "ok": true,
+      "note": "id 1, nonce 0x730f84845e15d89693c2b4e3d9c08d063f994e3d5a65cdad28328ef2e261103f"
+    },
+    {
+      "check": "openWithAuthorization with REAL MAINNET USDC (no approve)",
+      "ok": true,
+      "tx": "0xb2f5275d774a0e3e791a9516323244b00f35218bfa6345358da790b869e59def",
+      "link": "https://explorer.arc.io/tx/0xb2f5275d774a0e3e791a9516323244b00f35218bfa6345358da790b869e59def",
+      "note": "order #1 Active, payer 0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e, balance 0.020000 USDC; Writ received 0.020000 USDC; payer paid 0.025994 USDC (= 0.020000 USDC funding + 0.005993 USDC gas; on Arc gas is USDC); USDC authorizationState false -> true; gas 285417"
+    },
+    {
+      "check": "replayed authorization is rejected",
+      "ok": true,
+      "note": "reverted: BadAuthorizationNonce (simulation only, no tx)"
+    },
+    {
+      "check": "cancelByPq refunds the test order",
+      "ok": true,
+      "tx": "0xfb086f60c9d64888af70ca279e075af58662f4ee772fae5023014c1e38dceb68",
+      "link": "https://explorer.arc.io/tx/0xfb086f60c9d64888af70ca279e075af58662f4ee772fae5023014c1e38dceb68",
+      "note": "refund 0.020000 USDC, gas 434264"
+    }
+  ]
+}
