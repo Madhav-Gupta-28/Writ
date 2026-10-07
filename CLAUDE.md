@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the repo holds only the spec: `contracts/`, `frontend/`, `scripts/`, `shared/` and `test/` exist but are empty. Nothing is deployed.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the core slice of `contracts/src/Writ.sol` exists (open, fund, execute, amend, the PQ path) with tests. Not yet built: quarantine, `cancelByPq`, `rotateKey`, `resolveQuarantine`, the wallet-cancel dance, `reclaim`, the EIP-3009 functions, and the frontend. Nothing is deployed.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 
@@ -41,15 +41,21 @@ None open. Resolved in the spec on `spec/fixes`: `reference` → `ref`, `openWit
 
 ## Commands
 
-No build tooling is checked in yet. These commands come from the spec. Arc Foundry (`arc-forge`, `arc-cast`, `arc-anvil`) is preferred over plain Foundry.
+`contracts/` is a standard Foundry project (solc 0.8.30, `via_ir`). Foundry lives in `~/.foundry/bin`, which may not be on PATH. Arc Foundry (`arc-forge`) is preferred for deploys but isn't installed; plain `forge` runs every test.
 
 ```bash
-# tests (local runs mock the precompile with vm.mockCall; fork tests hit the real one)
-arc-forge test
-arc-forge test --match-test <name>
-arc-forge test --fork-url https://rpc.mainnet.arc.io --match-contract WritForkTest
+npm test                 # TS: shared/digest.ts against shared/fixtures (node --test)
+npm run test:sol         # Foundry unit + digest-parity tests; fork tests skip themselves
+npm run test:fork        # fork tests against Arc testnet (network)
+npm run fixtures         # regenerate shared/fixtures/digest.json after changing digest.ts
+node scripts/gen-fixtures.ts --pq   # also regenerate the real-signature fork fixture
+cd contracts && forge test --match-test <name>
+```
 
-# deploy (testnet first; faucet.circle.com -> Arc Testnet)
+Fork tests can't run Arc's precompiles inside a forge fork (they're native code; the fork sees a placeholder byte). `WritFork.t.sol` gets the real verdict with `vm.rpc("eth_call")` and replays it via an exact-calldata `vm.mockCall`. See ARCHITECTURE.md §11.3. Any change to `digestFor` or `shared/digest.ts` must keep `DigestParity.t.sol` and `test/digest.test.ts` green.
+
+```bash
+# deploy (from contracts/) (testnet first; faucet.circle.com -> Arc Testnet)
 arc-forge create src/Writ.sol:Writ --rpc-url $RPC --private-key $PK --gas-price 20gwei --priority-gas-price 1gwei
 arc-forge verify-contract $ADDRESS src/Writ.sol:Writ --verifier sourcify --chain 5042
 
@@ -59,4 +65,3 @@ cast call 0x1800000000000000000000000000000000000004 "verifySlhDsaSha2128s(bytes
 
 The full flow can be rehearsed against live mainnet at no cost. Use `eth_call` with state overrides to inject the bytecode and a balance (§11.5). Do this before any mainnet deploy, because the contract is immutable.
 
-Update this section once real `package.json` / `foundry.toml` scripts exist.

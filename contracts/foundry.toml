@@ -1,0 +1,15 @@
+[profile.default]
+src            = "src"
+test           = "test"
+out            = "out"
+libs           = ["lib"]
+solc_version   = "0.8.30"
+evm_version    = "prague"   # newest target solc 0.8.30 knows; Arc runs Osaka, which is a superset
+via_ir         = true       # ARCHITECTURE.md §12.1: the 14-field getter and 8-param amend need it
+optimizer      = true
+optimizer_runs = 200
+# Fixtures are written by scripts/gen-fixtures.ts and shared with the TS tests.
+fs_permissions = [{ access = "read", path = "../shared/fixtures" }]
+
+[rpc_endpoints]
+arc_testnet = "https://rpc.testnet.arc.io"   # public, anonymous (ARCHITECTURE.md §3.1)

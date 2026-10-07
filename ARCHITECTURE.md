@@ -302,7 +302,9 @@ selector 0xbf4db8ba
 ```
 
 All five Arc precompiles live in `0x1800…0000`–`0x1800…0004` and return code
-`0xef`:
+`0xef` on mainnet. On testnet `0x1800…0004` returns `0x01` (2026-10-07). Either
+way it is a placeholder, not executable EVM code; see §11.3 for what that means
+for fork tests:
 
 | Precompile | Address |
 | --- | --- |
@@ -781,7 +783,7 @@ event Paid(uint256 indexed id, address indexed beneficiary, uint128 amount,
 event Quarantined(uint256 indexed id, address indexed beneficiary, uint64 at);
 event QuarantineResolved(uint256 indexed id, address indexed newBeneficiary);
 event Amended(uint256 indexed id, address indexed newBeneficiary, uint128 newAmount,
-              uint64 newPeriodSeconds, uint64 newEndTime, uint64 pqNonce);
+              uint64 newPeriodSeconds, uint64 newEndTime, uint64 pqNonce);  // the nonce that authorized it, as in PQVerified
 event KeyRotated(uint256 indexed id, bytes32 newPqKey, uint64 pqNonce);
 event Cancelled(uint256 indexed id, uint128 refunded, bool byPqKey);
 event WalletCancelBegun(uint256 indexed id, uint64 readyAt);
@@ -842,22 +844,26 @@ $0.0022 each that is acceptable.
 
 ```solidity
 function _payExecutor(uint256 id, Obligation storage o, uint256 gasStart) private {
-    uint256 gasUsed   = gasStart - gasleft() + REIMBURSE_OVERHEAD;
+    uint256 gasUsed = gasStart - gasleft() + REIMBURSE_OVERHEAD;
     // tx.gasprice is 18-decimal native USDC. §3.10. This is the ONLY place the
-    // two decimal conventions meet.
-    uint256 costNative = gasUsed * tx.gasprice;
-    uint128 fee        = uint128(costNative / NATIVE_TO_ERC20) + EXECUTOR_TIP;
+    // two decimal conventions meet. Computed in uint256 and capped before
+    // narrowing, so an extreme gas price cannot truncate.
+    uint256 fee = gasUsed * tx.gasprice / NATIVE_TO_ERC20 + EXECUTOR_TIP;
 
     if (fee > o.maxExecutorFee) fee = o.maxExecutorFee;
     if (fee > o.balance)        fee = o.balance;
     if (fee == 0) return;
 
-    o.balance      -= fee;
-    totalCommitted -= fee;
-    if (!USDC.transfer(msg.sender, fee)) revert TransferFailed();
-    emit ExecutorPaid(id, msg.sender, fee);
+    uint128 fee128  = uint128(fee);
+    o.balance      -= fee128;
+    totalCommitted -= fee128;
+    if (!USDC.transfer(msg.sender, fee128)) revert TransferFailed();
+    emit ExecutorPaid(id, msg.sender, fee128);
 }
 ```
+
+An earlier draft cast to `uint128` before capping. With `tx.gasprice` near
+`2^64` that cast silently truncates, so the cap is applied in `uint256` first.
 
 `maxExecutorFee` bounds the payer's exposure. It matters because Arc's base fee
 can legally rise from the 20 Gwei floor to the 20,000 Gwei ceiling — a 1,000×
@@ -1453,7 +1459,9 @@ there is exactly one multiplication by `tx.gasprice` and exactly one division by
 
 ### 11.1 Unit — Foundry, precompile mocked
 
-Local anvil has no Arc precompiles, so mock `0x1800…0004`:
+Local anvil has no Arc precompiles, so mock `0x1800…0004`. USDC is
+`contracts/test/mocks/MockUSDC.sol`, placed at `0x3600…0000` with
+`deployCodeTo`:
 
 ```solidity
 vm.mockCall(
@@ -1468,6 +1476,13 @@ assert the contract builds the identical digest. This is `pq-provenance`'s
 approach and it is the right one: the signature bytes are real, only the
 verifier is simulated. The same fixture file pins `openAuthNonce` and
 `fundAuthNonce` against the TypeScript in `shared/`.
+
+Implemented as: `scripts/gen-fixtures.ts` writes `shared/fixtures/digest.json`
+from `shared/digest.ts`. `test/digest.test.ts` (Node) and
+`contracts/test/DigestParity.t.sol` (Foundry) both check against it, the latter
+by reproducing each case's `chainid` (`vm.chainId`), contract address
+(`deployCodeTo`) and `pqNonce` (real amends). Changing one byte of one fixture
+fails both suites.
 
 Coverage: open validation (every row of the §5.8 table), funding by both paths,
 execute when due and not due, catch-up across three periods, completion at
@@ -1492,7 +1507,7 @@ The tests that matter.
 | `vetoWalletCancel` then `finalizeWalletCancel` | revert `NoCancelPending` |
 | `execute` twice in the same period | second reverts `NotDue` |
 | **executor fee at `tx.gasprice` = 20,000 Gwei** | fee capped at `maxExecutorFee`, obligation not drained |
-| **`NATIVE_TO_ERC20` inverted** (mutation test) | invariant 2 must fail loudly |
+| **`NATIVE_TO_ERC20` inverted** (mutation test) | fee at the 20 Gwei floor is pinned to `EXECUTOR_TIP` + meter (a few thousand units). Inverting or shrinking the constant pushes the fee to `maxExecutorFee` and the test fails. Invariant 2 alone would not catch it, because the cap still holds |
 | reentrant USDC that calls back into `execute` | guard holds, invariant 1 holds |
 | beneficiary blocklisted mid-life | `Quarantined`, no gas-burning transfer attempt |
 | `amend` on a `Quarantined`, `Cancelled` or `Completed` obligation | revert `NotActive` |
@@ -1507,15 +1522,34 @@ The tests that matter.
 ### 11.3 Fork and live — the tests a mock cannot replace
 
 ```bash
-arc-forge test --fork-url https://rpc.mainnet.arc.io --match-contract WritForkTest
+cd contracts && forge test --fork-url arc_testnet --match-contract WritForkTest -vv
 ```
+
+**A vanilla `forge` fork cannot execute Arc's precompiles.** They are native
+node code. The fork sees only a placeholder byte at `0x1800…0004` (`0x01` on
+testnet, measured 2026-10-07) and the local EVM runs it as bytecode, so the
+call fails. Measured: an in-fork call returns `success = false` with empty
+return data. The same applies to the USDC facade, which reads native balances
+through a system precompile.
+
+So `contracts/test/WritFork.t.sol` sends each verification to the real node as
+an `eth_call` via `vm.rpc`, then replays that verdict into the fork with a
+`vm.mockCall` keyed on the **exact** calldata. If Writ sent any other bytes, no
+mock would match, the call would hit the placeholder and `amend` would revert.
+A passing `amend` therefore proves Writ sends exactly the bytes the real
+precompile accepted. USDC is `MockUSDC` on the fork too. **ASSUMPTION:** Arc
+Foundry (`arc-forge`) may execute the precompiles in-fork, which would remove
+this indirection. Not yet tried.
 
 1. **The real precompile accepts the real signature.** Generate a keypair in
    Node, sign a digest the contract computed, and verify through
-   `0x1800…0004` on a mainnet fork. This is the test that catches the pure-vs-
-   internal variant trap (§3.4).
+   `0x1800…0004`. This is the test that catches the pure-vs-internal variant
+   trap (§3.4). **Implemented** against testnet with the committed
+   `shared/fixtures/pq-amend.json`, together with the `.internal` rejection
+   and a one-bit-flipped digest.
 2. **Wrong-length inputs revert, not return false** — pin §3.4's table as a
    test so a future Arc upgrade that changes it fails loudly here.
+   **Implemented** for a 31-byte key and a 7,855-byte signature.
 3. **A real `USDC.transfer` from a contract succeeds**, including to a contract
    beneficiary (§3.7 control).
 4. **`isBlacklisted` answers** for a known-good address.
@@ -1580,6 +1614,7 @@ this field do, and it reads as discipline.
 ```toml
 [profile.default]
 solc_version   = "0.8.30"
+evm_version    = "prague"   # newest target solc 0.8.30 knows; Osaka is a superset
 via_ir         = true
 optimizer      = true
 optimizer_runs = 200
