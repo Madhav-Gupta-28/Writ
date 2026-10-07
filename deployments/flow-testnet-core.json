@@ -1,0 +1,54 @@
+{
+  "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
+  "payer": "0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e",
+  "steps": [
+    {
+      "step": "1. key card generated",
+      "note": "public key 0xdd34e1ca517e0d3dbc625b1c68c83d1325e5c18fb86d85c4bdac06bb3e0cf058 (secret saved to .keycards/flow-1791369745460.json). A = 0x2d7372d79385e20B46e5B4b829c6CEc521D0D625, B = 0xD7F207b3F4a312827b0c5BfdB808bd778Dc55AE3"
+    },
+    {
+      "step": "2a. approve USDC for open",
+      "tx": "0x7ebb337fffba4c86482ed2a4bc67eb00d0fdb1f3a4a26e9f3ab7a111c2d302bf",
+      "link": "https://explorer.testnet.arc.io/tx/0x7ebb337fffba4c86482ed2a4bc67eb00d0fdb1f3a4a26e9f3ab7a111c2d302bf",
+      "note": "allow Writ to pull 0.300000 USDC"
+    },
+    {
+      "step": "2b. open order #1 paying A",
+      "tx": "0xaf991f4f977b3bc262dbfefa5aca62f8203440ad63679ba39e7f6d21a835d9ad",
+      "link": "https://explorer.testnet.arc.io/tx/0xaf991f4f977b3bc262dbfefa5aca62f8203440ad63679ba39e7f6d21a835d9ad",
+      "note": "0.100000 USDC every 3600s, first due 2026-10-07T10:42:47Z, funded 0.300000 USDC, gas 248373"
+    },
+    {
+      "step": "3. execute: A is paid",
+      "tx": "0x40320940fe605f1b057c1234014ec714e9ef829297d804091059d1805fe15e82",
+      "link": "https://explorer.testnet.arc.io/tx/0x40320940fe605f1b057c1234014ec714e9ef829297d804091059d1805fe15e82",
+      "note": "A balance 0.100000 USDC, gas 123148"
+    },
+    {
+      "step": "4. key card signs the amend",
+      "note": "digest 0xfaee3e028cf899227e53a3a4b54c615ab760a72530a89a318ef6d448346dfdd6 (matches on-chain digestFor), 7856-byte SLH-DSA signature in 1699 ms"
+    },
+    {
+      "step": "5. amend: order now pays B",
+      "tx": "0x9adbd9cdca30c5a9186d84f64cfbaa6616c6e3d4c13117b4c4d01be2f9a109c6",
+      "link": "https://explorer.testnet.arc.io/tx/0x9adbd9cdca30c5a9186d84f64cfbaa6616c6e3d4c13117b4c4d01be2f9a109c6",
+      "note": "beneficiary 0xD7F207b3F4a312827b0c5BfdB808bd778Dc55AE3, pqNonce 1, nextDueAt unchanged (2026-10-07T11:42:47Z), gas 421483"
+    },
+    {
+      "step": "6. waiting for the 1-hour interval",
+      "note": "next payment due 2026-10-07T11:42:47Z"
+    },
+    {
+      "step": "7. execute: B is paid",
+      "tx": "0xa41acb94bd6a7625622bbccf756d354491c26a06156d15424d8c8dc30fba26d1",
+      "link": "https://explorer.testnet.arc.io/tx/0xa41acb94bd6a7625622bbccf756d354491c26a06156d15424d8c8dc30fba26d1",
+      "note": "B balance 0.100000 USDC, A balance 0.100000 USDC, gas 123148"
+    },
+    {
+      "step": "8. payer wallet tries to amend: rejected",
+      "tx": "0x27abe68b03fdbbc633ce466ac376c2d1baa41767ea2e5f2e0d1f4a2f233473ff",
+      "link": "https://explorer.testnet.arc.io/tx/0x27abe68b03fdbbc633ce466ac376c2d1baa41767ea2e5f2e0d1f4a2f233473ff",
+      "note": "reverted with BadSignature; beneficiary is still B, pqNonce still 1"
+    }
+  ]
+}
