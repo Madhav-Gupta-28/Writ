@@ -508,7 +508,7 @@ signature check, a function that does not exist produces a bare revert:
 `DOMAIN_SEPARATOR()` returns
 `0x940506929bba468048a19b567f4f0d534714bc06604b5c3017e5d16785ccdf84`.
 
-`receiveWithAuthorization` is the funding path in §5.2: it can only be submitted
+`receiveWithAuthorization` is the funding path in §5.8: it can only be submitted
 by the named recipient, so it cannot be front-run, and it needs no prior
 `approve`.
 
@@ -529,9 +529,9 @@ Historical `eth_getLogs` is not served. Two consequences:
   offer Arc endpoints) is required for any historical view. Do not ship a
   "payment history" panel backed by the public RPC.
 - I could not enumerate real `Blacklisted` events, so I cannot demonstrate the
-  quarantine path against a genuinely frozen mainnet address. The demo uses the
-  live `isBlacklisted` read and a beneficiary that is a self-destructed or
-  zero-address target to force a real refusal. Stated in §15.
+  quarantine path against a genuinely frozen mainnet address. The demo is a
+  mainnet fork test that mocks only `isBlacklisted` (§11.3 row 8). Stated in
+  §15.
 
 ### 3.10 Arc EVM divergences that bite this design
 
@@ -541,7 +541,7 @@ relevant to a contract that custodies USDC:
 | Divergence | Why it matters here |
 | --- | --- |
 | `SELFDESTRUCT` moves a contract's USDC to the beneficiary, because USDC *is* the native balance | Writ contains no `SELFDESTRUCT`. Any library that does is disqualified |
-| A non-zero-value call to a self-destructed account **reverts** | A beneficiary can become permanently unpayable. Handled as `Quarantined` |
+| A non-zero-value call to a self-destructed account **reverts** | A beneficiary can become permanently unpayable. Not detectable in advance, so `execute` reverts `TransferFailed` (§8 row 5). Only `isBlacklisted` triggers `Quarantined` |
 | Sends to `address(0)` **revert** rather than succeed | `beneficiary != address(0)` is validated at `open` |
 | Sending native value to a contract is not guaranteed to succeed | Writ never sends native value; it uses `transfer` on the ERC-20 interface |
 | Blocklist reverts consume gas and produce no receipt | The entire reason for §5.4 |
@@ -635,7 +635,7 @@ A compromise of any single one of these is survivable. §9 works through each.
 6.  balance >= amountPerPeriod?              else revert, cheap
 7.  balance -= amount; nextDueAt += period   (effects before interaction)
 8.  USDC.transfer(beneficiary, amount)
-9.  emit Paid(id, beneficiary, amount, periodIndex, reference)
+9.  emit Paid(id, beneficiary, amount, periodIndex, ref)
 10. reimburse executor: min(gasUsed × tx.gasprice / 1e12 + TIP, maxExecutorFee)
 11. nextDueAt > endTime?          ── yes ──> state = Completed
 ```
@@ -650,7 +650,9 @@ paid for it.
 ## 5. The contract
 
 One file, `src/Writ.sol`, Solidity `0.8.30`, no inheritance beyond a local
-reentrancy guard, no external libraries.
+reentrancy guard, no external libraries. **Compile with `via_ir = true`**
+(§12.1): the 14-field public `obligations` getter and the 8-parameter `amend`
+hit stack-too-deep under the legacy pipeline.
 
 ### 5.1 Interfaces and constants
 
@@ -722,7 +724,31 @@ struct Obligation {
     uint32   periodsPaid;
     State    state;
     bytes32  pqKey;            // SLH-DSA-SHA2-128s public key, exactly 32 bytes
-    bytes32  reference;        // reconciliation reference. §3.7 — no native memo exists
+    bytes32  ref;              // reconciliation reference. §3.7 — no native memo exists
+}
+
+/// The terms a payer chooses at open. Grouped so `open` and
+/// `openWithAuthorization` stay under the stack limit and so the terms can be
+/// hashed as one value for the EIP-3009 nonce (§5.8).
+struct Terms {
+    address  beneficiary;
+    uint128  amountPerPeriod;
+    uint64   periodSeconds;
+    uint64   startAt;
+    uint64   endTime;
+    uint128  maxExecutorFee;
+    bytes32  pqKey;
+    bytes32  ref;
+}
+
+/// EIP-3009 `receiveWithAuthorization` fields other than from / to / value.
+struct Authorization {
+    uint256  validAfter;
+    uint256  validBefore;
+    bytes32  nonce;
+    uint8    v;
+    bytes32  r;
+    bytes32  s;
 }
 
 mapping(uint256 => Obligation) public obligations;
@@ -735,18 +761,22 @@ uint256 public totalCommitted;   // Σ obligations[*].balance — invariant anch
 bytes (§3.4). This saves a storage slot and makes the length invariant
 structural rather than checked.
 
+The reconciliation field is `ref`, not `reference`: `reference` is a reserved
+word in Solidity and does not compile. The same name is used in the events and
+in `Terms`.
+
 ### 5.3 Events
 
 ```solidity
 event Opened(uint256 indexed id, address indexed payer, address indexed beneficiary,
              uint128 amountPerPeriod, uint64 periodSeconds, uint64 endTime,
-             bytes32 pqKey, bytes32 reference);
+             bytes32 pqKey, bytes32 ref);
 event Funded(uint256 indexed id, address indexed from, uint128 amount, uint128 newBalance);
 
 /// The reconciliation record. Arc's Memo predeploy cannot be reached from a
 /// contract (§3.7), so this event is the canonical reference, not a Memo log.
 event Paid(uint256 indexed id, address indexed beneficiary, uint128 amount,
-           uint32 periodIndex, bytes32 reference);
+           uint32 periodIndex, bytes32 ref);
 
 event Quarantined(uint256 indexed id, address indexed beneficiary, uint64 at);
 event QuarantineResolved(uint256 indexed id, address indexed newBeneficiary);
@@ -791,7 +821,7 @@ function execute(uint256 id) external nonReentrant {
     uint32 idx      = ++o.periodsPaid;
 
     if (!USDC.transfer(o.beneficiary, amt)) revert TransferFailed();
-    emit Paid(id, o.beneficiary, amt, idx, o.reference);
+    emit Paid(id, o.beneficiary, amt, idx, o.ref);
 
     if (o.nextDueAt > o.endTime) {
         o.state = State.Completed;
@@ -900,20 +930,46 @@ function cancelByPq(uint256 id, uint64 deadline, bytes calldata pqSig) external 
 
 function rotateKey(uint256 id, bytes32 newPqKey, uint64 deadline, bytes calldata pqSig) external;
     // payload = abi.encode(newPqKey)
+    // newPqKey == bytes32(0) -> InvalidPqKey
 
 function resolveQuarantine(uint256 id, address newBeneficiary,
                            uint64 deadline, bytes calldata pqSig) external nonReentrant;
     // payload = abi.encode(newBeneficiary)
+    // state != Quarantined -> NotQuarantined
     // newBeneficiary == address(0) -> cancel and refund the payer
-    // otherwise -> re-screen, set beneficiary, state = Active
+    // otherwise -> re-screen (InvalidBeneficiary / BeneficiaryBlacklisted),
+    //              set beneficiary, state = Active
 
 function vetoWalletCancel(uint256 id, uint64 deadline, bytes calldata pqSig) external;
-    // payload = ""   -> cancelReadyAt = 0
+    // payload = ""   -> cancelReadyAt = 0; NoCancelPending if none is pending
 ```
 
 `amend` re-validates every new term against the same bounds as `open`, and
 re-screens `newBeneficiary` against `isBlacklisted` so an amendment cannot move
 a healthy obligation into a guaranteed failure.
+
+**`amend` rules: `Active` only, the schedule is kept.**
+
+| Rule | Check | Error |
+| --- | --- | --- |
+| Only a running obligation can be amended. A `Quarantined` one goes through `resolveQuarantine`; `Cancelled` and `Completed` are final | `state == Active` | `NotActive` |
+| New beneficiary, amount, period and fee pass the §5.8 open checks | same as `open` | same as `open` |
+| The new end date is not in the past and leaves room for at least one more payment | `newEndTime >= nextDueAt && newEndTime >= block.timestamp` | `InvalidEndTime` |
+
+- **`nextDueAt` does not change.** The next payment happens when it was already
+  scheduled, using the new beneficiary and amount. The new `periodSeconds`
+  applies from then on: that payment sets `nextDueAt += newPeriodSeconds`.
+  Invariant 5 (strictly increasing `nextDueAt`) is unaffected.
+- If the obligation is overdue (`nextDueAt` in the past), the overdue periods
+  are paid at the new amount to the new beneficiary. The terms in force at
+  `execute` time are the ones that count.
+- No upper bound on `newEndTime` beyond `uint64`. Extending it also pushes back
+  `reclaim`; that is within the amendment authority, and the payer's 30-day
+  wallet cancel is unaffected.
+- A pending wallet cancel (`cancelReadyAt`) is left alone. Only
+  `vetoWalletCancel` clears it.
+- The balance is not checked against the new amount. An underfunded obligation
+  pauses with `Underfunded` as usual (§6.3).
 
 ### 5.7 The lost-key backstop
 
@@ -946,54 +1002,150 @@ outcome is to cost the owner 30 days of notice.
 This is arc-guard's exit pattern, inverted. They let the wallet start an exit
 that the PQ key cancels; the credit belongs to them and the README says so.
 
+`vetoWalletCancel` reverts `NoCancelPending` when `cancelReadyAt == 0`, so a
+veto signature is never spent on nothing.
+
+**Refunds to a blocklisted payer revert.** Every refund path —
+`cancelByPq`, `resolveQuarantine(id, address(0))`, `finalizeWalletCancel` and
+`reclaim` — ends in `_refundAndClose`, which sends `o.balance` to `o.payer`.
+`_refundAndClose` reads `USDC.isBlacklisted(o.payer)` first and, if it is true,
+reverts `PayerBlacklisted()`. The read is free and turns Arc's receipt-less gas
+burn (§1.3) into a typed error. Nothing changes: the balance, state, and
+`cancelReadyAt` are as they were, and the PQ nonce is not consumed, because
+the whole transaction reverts.
+
+This is a revert, not a quarantine, on purpose. The refund destination is fixed
+to the payer (invariant 3, §10), and there is no other address the contract
+could choose without giving someone the authority to redirect the payer's
+money. What still works while the payer is frozen: an `Active` obligation keeps
+paying its beneficiary, and the PQ key can still `amend` it. If Circle later
+unblocks the payer, the refund goes through. If not, the balance stays in the
+contract, the same outcome a freeze would impose on USDC the payer held
+directly.
+
 ### 5.8 `open`, `fund`, `reclaim`
 
 ```solidity
-function open(
-    address beneficiary, uint128 amountPerPeriod, uint64 periodSeconds,
-    uint64 startAt, uint64 endTime, uint128 maxExecutorFee,
-    bytes32 pqKey, bytes32 reference, uint128 initialFunding
-) external nonReentrant returns (uint256 id);
+/// Payer = msg.sender. Pulls initialFunding with transferFrom (needs a prior approve).
+function open(Terms calldata t, uint128 initialFunding)
+    external nonReentrant returns (uint256 id)
+{
+    id = _open(t, msg.sender, initialFunding);
+    if (!USDC.transferFrom(msg.sender, address(this), initialFunding)) revert TransferFailed();
+}
 ```
+
+`_open(t, payer, initialFunding)` runs the validation below, assigns
+`id = nextId++`, writes the obligation with `state = Active`,
+`nextDueAt = startAt`, `balance = initialFunding`, adds `initialFunding` to
+`totalCommitted`, and emits `Opened` then `Funded`.
 
 Validation, in order:
 
-| Check | Reason |
-| --- | --- |
-| `beneficiary != address(0)` | `address(0)` sends **revert** on Arc (§3.10) |
-| `beneficiary != address(this)` | would corrupt the `totalCommitted` invariant |
-| `!USDC.isBlacklisted(beneficiary)` | do not open an obligation that cannot pay |
-| `pqKey != bytes32(0)` | an all-zero key is not a key |
-| `amountPerPeriod > 0` | |
-| `MIN_PERIOD <= periodSeconds <= MAX_PERIOD` | bounds the `nextDueAt` arithmetic |
-| `endTime > startAt` and `endTime >= startAt + periodSeconds` | at least one period must be payable |
-| `maxExecutorFee > 0 && maxExecutorFee < amountPerPeriod` | the fee can never exceed the payment |
-| `initialFunding >= amountPerPeriod` | an obligation that cannot pay its first period is not an obligation |
+| Check | Error | Reason |
+| --- | --- | --- |
+| `beneficiary != address(0)` | `InvalidBeneficiary` | `address(0)` sends **revert** on Arc (§3.10) |
+| `beneficiary != address(this)` | `InvalidBeneficiary` | would corrupt the `totalCommitted` invariant |
+| `!USDC.isBlacklisted(beneficiary)` | `BeneficiaryBlacklisted` | do not open an obligation that cannot pay |
+| `pqKey != bytes32(0)` | `InvalidPqKey` | an all-zero key is not a key |
+| `amountPerPeriod > 0` | `ZeroAmount` | |
+| `MIN_PERIOD <= periodSeconds <= MAX_PERIOD` | `InvalidPeriod` | bounds the `nextDueAt` arithmetic |
+| `endTime > startAt` and `endTime >= startAt + periodSeconds` | `InvalidEndTime` | at least one period must be payable |
+| `maxExecutorFee > 0 && maxExecutorFee < amountPerPeriod` | `InvalidExecutorFee` | the fee can never exceed the payment |
+| `initialFunding >= amountPerPeriod` | `InsufficientInitialFunding` | an obligation that cannot pay its first period is not an obligation |
 
-Funding takes two forms. The primary one needs no `approve`:
+#### Open and fund in one transaction
+
+The primary path. It needs no `approve`, so §7.1 is one transaction.
 
 ```solidity
-/// EIP-3009. Verified live, §3.8. Only this contract can submit an
-/// authorization naming it as `to`, so it cannot be front-run.
+bytes32 public constant OPEN_AUTH_TAG = keccak256("WRIT_V1_OPEN_AUTH");
+bytes32 public constant FUND_AUTH_TAG = keccak256("WRIT_V1_FUND_AUTH");
+
+/// The EIP-3009 nonce a payer must sign to open obligation `id` with terms `t`.
+/// chainid is not included: the USDC EIP-712 domain already binds the chain.
+function openAuthNonce(uint256 id, Terms calldata t) public view returns (bytes32) {
+    return keccak256(abi.encode(OPEN_AUTH_TAG, address(this), id, keccak256(abi.encode(t))));
+}
+
+/// Payer = from, not msg.sender, so a relayer may submit it.
+function openWithAuthorization(
+    Terms calldata t, address from, uint128 initialFunding, Authorization calldata a
+) external nonReentrant returns (uint256 id) {
+    id = nextId;
+    if (a.nonce != openAuthNonce(id, t)) revert BadAuthorizationNonce();
+    _open(t, from, initialFunding);
+    USDC.receiveWithAuthorization(from, address(this), initialFunding,
+                                  a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
+}
+```
+
+**Why the nonce is bound to the id and the terms.** `receiveWithAuthorization`
+only checks that `msg.sender == to`, and `to` is Writ. So anyone who sees a
+signed authorization can hand it to Writ. If the nonce were free, they could
+submit it under a different obligation id, or open an obligation with the
+payer's money and **their own beneficiary**. Making the nonce a hash of
+`(address(this), id, terms)` means the USDC contract itself rejects any use
+other than the one the payer signed: change any term or the id and the
+signature no longer matches. That is also what makes relayed submission safe.
+
+The client predicts `id` by reading `nextId()`. If another `open` lands first,
+the id moves on, the call reverts `BadAuthorizationNonce` before any USDC
+moves, and the authorization is still unused. The UI re-reads `nextId` and asks
+for a new signature. `shared/` computes the same nonce in TypeScript, and a
+committed fixture checks it against `openAuthNonce` the same way as
+`digestFor` (§11.1).
+
+**ASSUMPTION:** §3.8 proved `receiveWithAuthorization` exists on Arc's USDC but
+only exercised its failure path. A contract calling it successfully is checked
+by fork test §11.3 row 7 before anything depends on it.
+
+#### Topping up
+
+```solidity
+function fundAuthNonce(uint256 id, bytes32 salt) public view returns (bytes32) {
+    return keccak256(abi.encode(FUND_AUTH_TAG, address(this), id, salt));
+}
+
+/// EIP-3009, same binding: the nonce commits to the id, and a fresh `salt`
+/// makes each top-up's nonce unique.
 function fundWithAuthorization(
-    uint256 id, address from, uint256 value,
-    uint256 validAfter, uint256 validBefore, bytes32 nonce,
-    uint8 v, bytes32 r, bytes32 s
+    uint256 id, address from, uint128 value, bytes32 salt, Authorization calldata a
 ) external nonReentrant {
+    if (a.nonce != fundAuthNonce(id, salt)) revert BadAuthorizationNonce();
+    _credit(id, value, from);
     USDC.receiveWithAuthorization(from, address(this), value,
-                                  validAfter, validBefore, nonce, v, r, s);
-    _credit(id, uint128(value), from);
+                                  a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
 }
 
 /// Fallback for wallets that cannot sign EIP-712 EIP-3009 payloads.
 function fund(uint256 id, uint128 amount) external nonReentrant {
-    if (!USDC.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
     _credit(id, amount, msg.sender);
+    if (!USDC.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
+}
+
+/// Every top-up ends here.
+function _credit(uint256 id, uint128 amount, address from) private {
+    Obligation storage o = obligations[id];
+    if (o.state != State.Active && o.state != State.Quarantined) revert NotFundable();
+    if (amount == 0) revert ZeroAmount();
+    o.balance      += amount;
+    totalCommitted += amount;
+    emit Funded(id, from, amount, o.balance);
 }
 ```
 
-Anyone may fund any obligation. There is no reason to restrict it and a third
-party topping up a retainer is a legitimate flow.
+`_credit` accepts only `Active` and `Quarantined`, the two states that can still
+pay out or be resolved. The other three would strand the deposit:
+
+| State | Why a deposit there is lost |
+| --- | --- |
+| `None` | the id was never opened. There is no payer, so no function can ever move the money |
+| `Cancelled` | the obligation will never pay again and has already been refunded |
+| `Completed` | the obligation will never pay again. The payer could only recover it through `reclaim` after `endTime + RECLAIM_GRACE`, which is a mistake to rely on |
+
+Anyone may fund any live obligation. There is no reason to restrict it and a
+third party topping up a retainer is a legitimate flow.
 
 ```solidity
 /// After endTime + grace, the payer recovers whatever is left. This is the
@@ -1002,7 +1154,7 @@ function reclaim(uint256 id) external nonReentrant {
     Obligation storage o = obligations[id];
     if (msg.sender != o.payer) revert NotPayer();
     if (block.timestamp < o.endTime + RECLAIM_GRACE) revert TooEarly();
-    _refundAndClose(id, o, false);
+    _refundAndClose(id, o, false);   // reverts PayerBlacklisted if the payer is frozen, §5.7
 }
 ```
 
@@ -1015,6 +1167,50 @@ than the obligation's own PQ key.
 
 The contract cannot be stopped by its author, and the author cannot move a single
 unit of anyone's USDC.
+
+### 5.10 Errors
+
+Every revert in the contract is one of these. No `require` strings.
+
+```solidity
+// state
+error NotActive();                  // execute / amend / beginWalletCancel in the wrong state
+error NotQuarantined();             // resolveQuarantine when state != Quarantined
+error NotFundable();                // _credit on None, Cancelled or Completed (§5.8)
+error NotDue();                     // execute before nextDueAt
+error Underfunded();                // execute with balance < amountPerPeriod
+error TooEarly();                   // reclaim before endTime + RECLAIM_GRACE
+
+// funding authority
+error NotPayer();
+error NoCancelPending();            // finalize / veto with cancelReadyAt == 0
+error CancelNotReady();             // finalize before cancelReadyAt
+
+// amendment authority (§5.6)
+error Expired();                    // block.timestamp > deadline
+error BadSignatureLength();         // pqSig.length != 7856, checked before the precompile
+error BadSignature();               // precompile returned false
+
+// term validation, shared by open, amend, resolveQuarantine, rotateKey (§5.8 table)
+error InvalidBeneficiary();         // address(0) or address(this)
+error BeneficiaryBlacklisted();
+error InvalidPqKey();               // bytes32(0)
+error ZeroAmount();                 // amountPerPeriod == 0, or a zero top-up
+error InvalidPeriod();              // outside [MIN_PERIOD, MAX_PERIOD]
+error InvalidEndTime();
+error InvalidExecutorFee();         // 0, or >= amountPerPeriod
+error InsufficientInitialFunding(); // initialFunding < amountPerPeriod
+
+// EIP-3009 funding
+error BadAuthorizationNonce();      // nonce not bound to this id (and terms), §5.8
+
+// transfers
+error TransferFailed();
+error PayerBlacklisted();           // refund to a frozen payer, §5.7
+
+// guard
+error Reentrancy();
+```
 
 ---
 
@@ -1100,8 +1296,13 @@ until someone funds it.
    let that happen.
 4. Enter beneficiary, amount, interval, end date, executor-fee cap, reference.
    `endTime` is mandatory and the field explains why (§2.4).
-5. Sign one ordinary wallet transaction: `open(...)` plus funding by EIP-3009
-   authorization. One transaction, no `approve`. ~$0.0042.
+5. The UI reads `nextId()`, computes `openAuthNonce(id, terms)` (§5.8), and the
+   wallet signs an EIP-3009 `ReceiveWithAuthorization` for `initialFunding`
+   with that nonce. This is a signature, not a transaction.
+6. Send one ordinary transaction: `openWithAuthorization(terms, from,
+   initialFunding, auth)`. One transaction, no `approve`. ~$0.0042. If another
+   obligation took the id first, it reverts `BadAuthorizationNonce` with no
+   USDC moved, and the UI repeats step 5.
 
 ### 7.2 It pays itself
 
@@ -1166,6 +1367,9 @@ cast call 0x1800000000000000000000000000000000000004 \
 | 11 | Captured PQ signature replayed | none | digest binds chainid, contract, id, action, payload, `pqNonce`, deadline; nonce consumed on success |
 | 12 | Clock skew around `nextDueAt` | a period pays a few seconds early or late | tolerated; `periodSeconds >= 1 hour` makes it immaterial |
 | 13 | Executor front-runs another executor | one wins, one reverts `NotDue` cheaply | acceptable; it is a race for $0.0122 |
+| 14 | Payer blocklisted when a refund is due | refund transfer would burn gas with no receipt | pre-checked; reverts `PayerBlacklisted`, nothing changes; obligation keeps paying if `Active`. §5.7 |
+| 15 | Someone resubmits a payer's EIP-3009 authorization under another id or other terms | would redirect the payer's funding | nonce is bound to `(address(this), id, terms)`; reverts `BadAuthorizationNonce`. §5.8 |
+| 16 | USDC sent via `fund` to an id that is `None`, `Cancelled` or `Completed` | would be stranded | `_credit` reverts `NotFundable`. §5.8 |
 
 ---
 
@@ -1262,7 +1466,8 @@ vm.mockCall(
 Generate real fixtures with `@noble/post-quantum` once, commit them as JSON, and
 assert the contract builds the identical digest. This is `pq-provenance`'s
 approach and it is the right one: the signature bytes are real, only the
-verifier is simulated.
+verifier is simulated. The same fixture file pins `openAuthNonce` and
+`fundAuthNonce` against the TypeScript in `shared/`.
 
 Coverage: open validation (every row of the §5.8 table), funding by both paths,
 execute when due and not due, catch-up across three periods, completion at
@@ -1290,6 +1495,13 @@ The tests that matter.
 | **`NATIVE_TO_ERC20` inverted** (mutation test) | invariant 2 must fail loudly |
 | reentrant USDC that calls back into `execute` | guard holds, invariant 1 holds |
 | beneficiary blocklisted mid-life | `Quarantined`, no gas-burning transfer attempt |
+| `amend` on a `Quarantined`, `Cancelled` or `Completed` obligation | revert `NotActive` |
+| `amend` with `newEndTime < nextDueAt` or in the past | revert `InvalidEndTime` |
+| `amend` changing `periodSeconds` | `nextDueAt` unchanged; the following `execute` advances it by the **new** period |
+| `openWithAuthorization` with a valid authorization but a **different id** or **any changed term** | revert `BadAuthorizationNonce`, no USDC moved |
+| `fundWithAuthorization` authorization resubmitted for another id | revert `BadAuthorizationNonce` |
+| `fund` / `fundWithAuthorization` on an id in `None`, `Cancelled`, `Completed` | revert `NotFundable` |
+| every refund path with `isBlacklisted(payer)` mocked true | revert `PayerBlacklisted`; balance, state, `pqNonce` unchanged |
 | fuzz `amountPerPeriod`, `periodSeconds`, `maxExecutorFee` across full ranges | no overflow, no stuck state |
 
 ### 11.3 Fork and live — the tests a mock cannot replace
@@ -1312,6 +1524,19 @@ arc-forge test --fork-url https://rpc.mainnet.arc.io --match-contract WritForkTe
    lifts this, the test fails and the design can be revisited.
 6. **Gas pins:** assert one PQ action costs 433,953 ± 5%, and record `execute`'s
    real cost to replace the §6.1 estimates with measurements.
+7. **`receiveWithAuthorization` succeeds when Writ calls it.** Sign a real
+   EIP-3009 authorization against the mainnet USDC domain and run
+   `openWithAuthorization` on a fork. Retires the **ASSUMPTION** in §5.8.
+8. **Quarantine end to end — this is the quarantine demo.** On a mainnet fork,
+   open an obligation to a clean beneficiary, then
+   `vm.mockCall(USDC, abi.encodeCall(IUSDC.isBlacklisted, (beneficiary)), abi.encode(true))`.
+   `execute` must move it to `Quarantined`, emit `Quarantined`, pay the
+   executor, and make **no** `transfer` call to the beneficiary
+   (`vm.expectCall(..., 0)`). Then `resolveQuarantine` with a real SLH-DSA
+   signature through the real precompile, once to a successor (back to
+   `Active`, next `execute` pays the successor) and once with `address(0)`
+   (refund to payer). Everything except the one mocked read is real mainnet
+   state. Record it with `-vvvv` for the demo video.
 
 ### 11.4 Invariant / fuzz
 
@@ -1348,6 +1573,20 @@ Arc-specific fork that handles the protocol divergences in §3.10. Vanilla
 
 Pin the toolchain and commit the versions. Several of the strongest entries in
 this field do, and it reads as discipline.
+
+`foundry.toml` must enable the IR pipeline. Without it the 14-field public
+`obligations` getter and the 8-parameter `amend` fail with stack-too-deep:
+
+```toml
+[profile.default]
+solc_version   = "0.8.30"
+via_ir         = true
+optimizer      = true
+optimizer_runs = 200
+```
+
+Sourcify verification (§12.5) needs the same settings, so `via_ir` is part of
+the build, not a local workaround.
 
 ### 12.2 Testnet first, free
 
@@ -1471,9 +1710,14 @@ arrive, days 5–8 cannot happen.
    they are slightly overpaid. Neither is dangerous, both are sloppy.
 2. **The quarantine demo cannot use a genuinely blocklisted address.** The public
    RPC does not serve log history (§3.9), so I could not enumerate real
-   `Blacklisted` events. The demo forces a real refusal through a self-destructed
-   or zero-address beneficiary instead. Say this in the README rather than imply
-   a frozen-counterparty demo that is not what it looks like.
+   `Blacklisted` events, and nobody outside Circle can blocklist an address on
+   testnet or mainnet. Only `isBlacklisted` triggers quarantine: `open` rejects
+   `address(0)`, and a self-destructed beneficiary gives `TransferFailed`, not
+   `Quarantined`. So the demo is a **mainnet fork test** (§11.3 row 8) that runs
+   the real contract against real chain state and mocks only the one
+   `isBlacklisted` answer. It is shown as test output, not in the web UI. Say
+   this in the README rather than imply a frozen-counterparty demo that is not
+   what it looks like.
 3. **No native memo is possible** (§3.7). The `Paid` event carries the reference
    instead. If Arc ever lifts the `tx.origin` constraint on `CallFrom`, routing
    payments through `Memo` becomes possible and the fork test in §11.3 row 5
