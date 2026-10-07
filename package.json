@@ -1,0 +1,11 @@
+{
+  "name": "writ",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pq-check": "node scripts/pq-check.ts"
+  },
+  "dependencies": {
+    "@noble/post-quantum": "0.7.1"
+  }
+}
