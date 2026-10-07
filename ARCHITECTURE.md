@@ -781,11 +781,12 @@ event Paid(uint256 indexed id, address indexed beneficiary, uint128 amount,
            uint32 periodIndex, bytes32 ref);
 
 event Quarantined(uint256 indexed id, address indexed beneficiary, uint64 at);
-event QuarantineResolved(uint256 indexed id, address indexed newBeneficiary);
+event QuarantineResolved(uint256 indexed id, address indexed newBeneficiary);  // address(0) = resolved by cancelling
 event Amended(uint256 indexed id, address indexed newBeneficiary, uint128 newAmount,
               uint64 newPeriodSeconds, uint64 newEndTime, uint64 pqNonce);  // the nonce that authorized it, as in PQVerified
 event KeyRotated(uint256 indexed id, bytes32 newPqKey, uint64 pqNonce);
 event Cancelled(uint256 indexed id, uint128 refunded, bool byPqKey);
+event Reclaimed(uint256 indexed id, uint128 refunded);  // reclaim only; see §5.8
 event WalletCancelBegun(uint256 indexed id, uint64 readyAt);
 event WalletCancelVetoed(uint256 indexed id, uint64 pqNonce);
 event Completed(uint256 indexed id);
@@ -933,9 +934,11 @@ function amend(uint256 id, address newBeneficiary, uint128 newAmount,
 
 function cancelByPq(uint256 id, uint64 deadline, bytes calldata pqSig) external nonReentrant;
     // payload = ""   -> refunds o.balance to o.payer, state = Cancelled
+    // state must be Active or Quarantined, else NotActive
 
-function rotateKey(uint256 id, bytes32 newPqKey, uint64 deadline, bytes calldata pqSig) external;
-    // payload = abi.encode(newPqKey)
+function rotateKey(uint256 id, bytes32 newPqKey, uint64 deadline, bytes calldata pqSig) external nonReentrant;
+    // payload = abi.encode(newPqKey); signed by the key being replaced
+    // state must be Active or Quarantined, else NotActive
     // newPqKey == bytes32(0) -> InvalidPqKey
 
 function resolveQuarantine(uint256 id, address newBeneficiary,
@@ -944,11 +947,21 @@ function resolveQuarantine(uint256 id, address newBeneficiary,
     // state != Quarantined -> NotQuarantined
     // newBeneficiary == address(0) -> cancel and refund the payer
     // otherwise -> re-screen (InvalidBeneficiary / BeneficiaryBlacklisted),
-    //              set beneficiary, state = Active
+    //              set beneficiary, state = Active. nextDueAt is untouched, so
+    //              the period that triggered quarantine pays the successor on
+    //              the next execute
+    // emits QuarantineResolved(id, newBeneficiary) in both cases
 
-function vetoWalletCancel(uint256 id, uint64 deadline, bytes calldata pqSig) external;
+function vetoWalletCancel(uint256 id, uint64 deadline, bytes calldata pqSig) external nonReentrant;
     // payload = ""   -> cancelReadyAt = 0; NoCancelPending if none is pending
+    // state must be Active or Quarantined, else NotActive
 ```
+
+Every PQ entry point is `nonReentrant` and checks state and arguments
+**before** `_requirePq`, so a bad request fails cheaply instead of after the
+433k-gas verification. `cancelByPq` and `vetoWalletCancel` both sign an empty
+payload; the `Action` in the digest is what keeps one from being used as the
+other (tested in §11.2).
 
 `amend` re-validates every new term against the same bounds as `open`, and
 re-screens `newBeneficiary` against `isBlacklisted` so an amendment cannot move
@@ -983,22 +996,28 @@ Two independent protections, because `endTime` alone is too blunt for a 30-year
 instrument.
 
 ```solidity
-function beginWalletCancel(uint256 id) external {            // payer, ECDSA
+function beginWalletCancel(uint256 id) external nonReentrant {      // payer, ECDSA
     Obligation storage o = obligations[id];
     if (msg.sender != o.payer) revert NotPayer();
     if (o.state != State.Active && o.state != State.Quarantined) revert NotActive();
-    o.cancelReadyAt = uint64(block.timestamp) + WALLET_CANCEL_DELAY;
+    o.cancelReadyAt = uint64(block.timestamp) + WALLET_CANCEL_DELAY;   // calling again restarts the 30 days
     emit WalletCancelBegun(id, o.cancelReadyAt);
 }
 
 function finalizeWalletCancel(uint256 id) external nonReentrant {   // payer, ECDSA
     Obligation storage o = obligations[id];
     if (msg.sender != o.payer) revert NotPayer();
+    if (o.state != State.Active && o.state != State.Quarantined) revert NotActive();
     if (o.cancelReadyAt == 0) revert NoCancelPending();
     if (block.timestamp < o.cancelReadyAt) revert CancelNotReady();
     _refundAndClose(id, o, false);
 }
 ```
+
+The state check in `finalizeWalletCancel` matters: an obligation can reach
+`Completed` with a cancel still pending. Without the check, finalizing would
+move it `Completed → Cancelled` (breaking invariant 9) and skip `reclaim`'s
+grace period. Leftovers of a `Completed` obligation go through `reclaim`.
 
 During the 30-day window the obligation **keeps paying**. That is deliberate: a
 thief who has only the ECDSA key cannot stop payments, and the legitimate owner
@@ -1013,9 +1032,11 @@ veto signature is never spent on nothing.
 
 **Refunds to a blocklisted payer revert.** Every refund path —
 `cancelByPq`, `resolveQuarantine(id, address(0))`, `finalizeWalletCancel` and
-`reclaim` — ends in `_refundAndClose`, which sends `o.balance` to `o.payer`.
-`_refundAndClose` reads `USDC.isBlacklisted(o.payer)` first and, if it is true,
-reverts `PayerBlacklisted()`. The read is free and turns Arc's receipt-less gas
+`reclaim` — ends in `_refundPayer`, which sends `o.balance` to `o.payer` and
+clears `cancelReadyAt`. (`_refundAndClose` is `_refundPayer` plus
+`state = Cancelled` and the `Cancelled` event; `reclaim` calls `_refundPayer`
+directly, §5.8.) `_refundPayer` reads `USDC.isBlacklisted(o.payer)` first and,
+if it is true, reverts `PayerBlacklisted()`. The read is free and turns Arc's receipt-less gas
 burn (§1.3) into a typed error. Nothing changes: the balance, state, and
 `cancelReadyAt` are as they were, and the PQ nonce is not consumed, because
 the whole transaction reverts.
@@ -1160,10 +1181,21 @@ third party topping up a retainer is a legitimate flow.
 function reclaim(uint256 id) external nonReentrant {
     Obligation storage o = obligations[id];
     if (msg.sender != o.payer) revert NotPayer();
-    if (block.timestamp < o.endTime + RECLAIM_GRACE) revert TooEarly();
-    _refundAndClose(id, o, false);   // reverts PayerBlacklisted if the payer is frozen, §5.7
+    if (o.state != State.Active && o.state != State.Quarantined && o.state != State.Completed) {
+        revert NotActive();
+    }
+    if (block.timestamp < uint256(o.endTime) + RECLAIM_GRACE) revert TooEarly();
+    if (o.state != State.Completed) o.state = State.Cancelled;
+    emit Reclaimed(id, _refundPayer(o));   // reverts PayerBlacklisted if the payer is frozen, §5.7
 }
 ```
+
+`reclaim` does not go through `_refundAndClose`, because that would move a
+`Completed` obligation to `Cancelled` and break invariant 9. A `Completed`
+obligation stays `Completed` with a zero balance. A live one (never completed,
+for example because nobody executed it) becomes `Cancelled`. Either way the
+event is `Reclaimed`, not `Cancelled`. `Cancelled` obligations are rejected
+(`NotActive`): their balance is already zero.
 
 ### 5.9 What the contract deliberately does not have
 
@@ -1449,7 +1481,7 @@ Checked by Foundry invariant tests (§11.4) and worth asserting in review.
 | 6 | `beneficiary`, `amountPerPeriod`, `periodSeconds` and `endTime` change **only** inside a function that has called `_requirePq` |
 | 7 | `pqKey` changes only via `rotateKey`, which requires a signature from the key being replaced |
 | 8 | `executorFee <= maxExecutorFee < amountPerPeriod` on every execution |
-| 9 | `state` transitions only along: `Active → {Quarantined, Cancelled, Completed}`, `Quarantined → {Active, Cancelled}`. No path returns to `None` |
+| 9 | `state` transitions only along: `Active → {Quarantined, Cancelled, Completed}`, `Quarantined → {Active, Cancelled}`. No path returns to `None`, and `Completed` is terminal (`reclaim` zeroes its balance but leaves it `Completed`) |
 | 10 | No code path reads or writes `msg.value`; the contract is not `payable` |
 
 Invariant 10 is the structural guard against the 10¹² decimal class of bug:
@@ -1486,6 +1518,15 @@ from `shared/digest.ts`. `test/digest.test.ts` (Node) and
 by reproducing each case's `chainid` (`vm.chainId`), contract address
 (`deployCodeTo`) and `pqNonce` (real amends). Changing one byte of one fixture
 fails both suites.
+
+Two precompile stand-ins. `vm.mockCall` makes every signature pass or fail,
+which suits tests about what happens *after* verification.
+`contracts/test/mocks/MockPQVerifier.sol`, placed at `0x1800…0004`, accepts a
+"signature" only if it is `keccak256(vk, message)` padded to 7,856 bytes. It
+also reverts on wrong lengths like the real precompile. That keeps the property
+the replay tests need: a signature verifies only for the exact key and digest
+it was made for. `MockUSDC` implements EIP-3009 `receiveWithAuthorization` with
+real EIP-712 signature checks and single-use nonces, modelled on FiatTokenV2.
 
 Coverage: open validation (every row of the §5.8 table), funding by both paths,
 execute when due and not due, catch-up across three periods, completion at
@@ -1564,22 +1605,53 @@ this indirection. Not yet tried.
 7. **`receiveWithAuthorization` succeeds when Writ calls it.** Sign a real
    EIP-3009 authorization against the mainnet USDC domain and run
    `openWithAuthorization` on a fork. Retires the **ASSUMPTION** in §5.8.
-8. **Quarantine end to end — this is the quarantine demo.** On a mainnet fork,
-   open an obligation to a clean beneficiary, then
+8. **Quarantine end to end — this is the quarantine demo.**
+   **Implemented** in `contracts/test/WritQuarantineFork.t.sol` on an **Arc
+   testnet** fork (same precompile as mainnet; the committed signatures in
+   `shared/fixtures/pq-resolve.json` are bound to chain 5042002). USDC is
+   `MockUSDC` there, as in every fork test (§11.3 intro), and the single fake
+   is a `vm.mockCall` on `isBlacklisted(beneficiary)`. On a fork,
+   `deployCodeTo` keeps the real USDC's **storage** under MockUSDC's code, so
+   overlapping slots must be reset in setup (`WritBase` clears the re-entry
+   hook, which otherwise holds the token name). Open an obligation to a clean
+   beneficiary, then
    `vm.mockCall(USDC, abi.encodeCall(IUSDC.isBlacklisted, (beneficiary)), abi.encode(true))`.
    `execute` must move it to `Quarantined`, emit `Quarantined`, pay the
    executor, and make **no** `transfer` call to the beneficiary
    (`vm.expectCall(..., 0)`). Then `resolveQuarantine` with a real SLH-DSA
    signature through the real precompile, once to a successor (back to
    `Active`, next `execute` pays the successor) and once with `address(0)`
-   (refund to payer). Everything except the one mocked read is real mainnet
-   state. Record it with `-vvvv` for the demo video.
+   (refund to payer). A third case shows the successor's signature cannot be
+   redirected to another address. Record it with `-vvvv` for the demo video:
+   `forge test --fork-url arc_testnet --match-contract WritQuarantineForkTest -vvvv`.
 
 ### 11.4 Invariant / fuzz
 
 Foundry invariant campaign over `open`/`fund`/`execute`/`amend`/`cancel` with a
 handler that drives random actors, random times (`vm.warp`) and random gas
 prices, asserting all ten invariants in §10 after every call.
+
+**Implemented** in `contracts/test/WritInvariant.t.sol`. The handler drives
+every state-changing entry point plus blocklisting and unblocklisting of
+payers and beneficiaries, with the precompile mocked to accept. Signature
+binding is §11.2's job. Asserted after every call:
+
+- invariant 1, `totalCommitted == Σ balance`
+- invariant 2, which holds as equality here because nothing else sends USDC to Writ
+- invariants 4 and 5, monotonic `pqNonce` and `nextDueAt`
+- invariant 8, executor fee within the cap
+- invariant 9, no return to `None` and `Completed` terminal
+
+Invariants 3, 6, 7 and 10 are structural and covered by unit tests and review.
+
+Each run starts with three live obligations, so runs whose random blocklisting
+blocks every later `open` still exercise real state. Default campaign: 64 runs
+× 64 calls, about 10 s. Deep campaign:
+`FOUNDRY_INVARIANT_RUNS=256 FOUNDRY_INVARIANT_DEPTH=500 forge test --match-contract WritInvariantTest`.
+With `INVARIANT_REPORT=true`, each run appends how many calls of each kind
+succeeded to `contracts/cache/invariant-coverage.log`. That report is how
+two handler bugs were caught; tests that silently reverted every call would
+otherwise have passed.
 
 ### 11.5 Free mainnet rehearsal before spending anything
 

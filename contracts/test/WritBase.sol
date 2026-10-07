@@ -4,9 +4,13 @@ pragma solidity 0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Writ, IPQVerify} from "../src/Writ.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
+import {MockPQVerifier} from "./mocks/MockPQVerifier.sol";
 
 /// Shared setup: MockUSDC at the real USDC address, a funded payer, and helpers.
-/// The PQ precompile is mocked per test with vm.mockCall (§11.1).
+/// The PQ precompile is mocked per test: either vm.mockCall (any signature
+/// passes or fails), or MockPQVerifier via _useMockVerifier() (a signature
+/// passes only for the exact key and digest it was made for). Not deployed by
+/// default, so fork tests keep the real placeholder at 0x1800…0004.
 abstract contract WritBase is Test {
     address constant USDC_ADDR = 0x3600000000000000000000000000000000000000;
     address constant PQ_ADDR   = 0x1800000000000000000000000000000000000004;
@@ -21,6 +25,7 @@ abstract contract WritBase is Test {
     MockUSDC usdc;
 
     address payer       = makeAddr("payer");
+    uint256 payerKey    = uint256(keccak256(abi.encodePacked("payer"))); // forge-std makeAddr derivation
     address beneficiary = makeAddr("beneficiary");
     address executor    = makeAddr("executor");
     address stranger    = makeAddr("stranger");
@@ -28,6 +33,10 @@ abstract contract WritBase is Test {
     function setUp() public virtual {
         deployCodeTo("MockUSDC.sol:MockUSDC", USDC_ADDR);
         usdc = MockUSDC(USDC_ADDR);
+        // On a fork, deployCodeTo replaces the code at 0x3600…0000 but keeps the
+        // real USDC's storage, which overlaps MockUSDC's hook slots (the token
+        // name ends up as hookData). Clear them so transfer doesn't call junk.
+        usdc.setHook(address(0), "");
         writ = new Writ();
         vm.warp(1_800_000_000);
         _fundAndApprove(payer, 1_000_000e6, address(writ));
@@ -62,6 +71,34 @@ abstract contract WritBase is Test {
         return _open(_terms(), 12 * (AMOUNT + FEE_CAP));
     }
 
+    MockPQVerifier pqv;
+
+    function _useMockVerifier() internal {
+        deployCodeTo("MockPQVerifier.sol:MockPQVerifier", PQ_ADDR);
+        pqv = MockPQVerifier(PQ_ADDR);
+    }
+
+    /// A MockPQVerifier signature by `key` over w.digestFor(...) as of now.
+    function _pqSign(Writ w, bytes32 key, uint256 id, Writ.Action a, bytes memory payload, uint64 deadline)
+        internal view returns (bytes memory)
+    {
+        return pqv.sign(key, w.digestFor(id, a, payload, deadline));
+    }
+
+    /// An EIP-3009 ReceiveWithAuthorization signed with `pk`, against MockUSDC's domain.
+    function _signAuth(uint256 pk, address to, uint256 value, bytes32 nonce)
+        internal view returns (Writ.Authorization memory a)
+    {
+        address from = vm.addr(pk);
+        a.validAfter = block.timestamp - 1;
+        a.validBefore = block.timestamp + 1 hours;
+        a.nonce = nonce;
+        bytes32 digest = keccak256(abi.encodePacked(hex"1901", usdc.DOMAIN_SEPARATOR(), keccak256(abi.encode(
+            usdc.RECEIVE_WITH_AUTHORIZATION_TYPEHASH(), from, to, value, a.validAfter, a.validBefore, nonce
+        ))));
+        (a.v, a.r, a.s) = vm.sign(pk, digest);
+    }
+
     function _mockPq(bool ok) internal {
         vm.mockCall(PQ_ADDR, abi.encodeWithSelector(IPQVerify.verifySlhDsaSha2128s.selector), abi.encode(ok));
     }
@@ -86,6 +123,22 @@ abstract contract WritBase is Test {
 
     function _state(uint256 id) internal view returns (Writ.State s) {
         (,,,,,,,,,,, s,,) = writ.obligations(id);
+    }
+
+    function _beneficiary(uint256 id) internal view returns (address b) {
+        (, b,,,,,,,,,,,,) = writ.obligations(id);
+    }
+
+    function _cancelReadyAt(uint256 id) internal view returns (uint64 c) {
+        (,,,,,,,,, c,,,,) = writ.obligations(id);
+    }
+
+    function _pqKeyOf(uint256 id) internal view returns (bytes32 k) {
+        (,,,,,,,,,,,, k,) = writ.obligations(id);
+    }
+
+    function _endTime(uint256 id) internal view returns (uint64 e) {
+        (,,,,,,, e,,,,,,) = writ.obligations(id);
     }
 
     /// Invariants 1 and 2 (§10).

@@ -6,7 +6,7 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 ## Project state
 
-Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the core slice of `contracts/src/Writ.sol` exists (open, fund, execute, amend, the PQ path) with tests. Not yet built: quarantine, `cancelByPq`, `rotateKey`, `resolveQuarantine`, the wallet-cancel dance, `reclaim`, the EIP-3009 functions, and the frontend. Deployed on **Arc testnet only** (address and tx in `deployments/arc-testnet.json`); `npm run flow` replays the full demo there with real transactions (`deployments/flow-testnet.json`). Nothing on mainnet.
+Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 `contracts/src/Writ.sol` implements all of §5, with unit, adversarial, invariant and fork tests. Not yet built: the frontend. The **Arc testnet** deployment in `deployments/arc-testnet.json` is the earlier core slice (open/fund/execute/amend only); the full contract is not deployed yet. `npm run flow` replays the demo there with real transactions (`deployments/flow-testnet.json`). Nothing on mainnet.
 
 pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
 
@@ -46,7 +46,8 @@ None open. Resolved in the spec on `spec/fixes`: `reference` → `ref`, `openWit
 ```bash
 npm test                 # TS: shared/digest.ts against shared/fixtures (node --test)
 npm run test:sol         # Foundry unit + digest-parity tests; fork tests skip themselves
-npm run test:fork        # fork tests against Arc testnet (network)
+npm run test:fork        # every *ForkTest against Arc testnet (network), incl. the quarantine demo
+node scripts/gen-fixtures.ts --pq-resolve   # regenerate the quarantine fork test's real signatures
 npm run fixtures         # regenerate shared/fixtures/digest.json after changing digest.ts
 node scripts/gen-fixtures.ts --pq   # also regenerate the real-signature fork fixture
 cd contracts && forge test --match-test <name>

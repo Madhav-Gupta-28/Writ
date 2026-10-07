@@ -65,3 +65,16 @@ export function amendPayload(a: AmendTerms): Hex {
     [a.newBeneficiary, a.newAmount, a.newPeriodSeconds, a.newEndTime, a.newMaxExecutorFee],
   );
 }
+
+/** `resolveQuarantine`'s payload: abi.encode(newBeneficiary). address(0) means cancel. */
+export function resolveQuarantinePayload(newBeneficiary: Address): Hex {
+  return encodeAbiParameters([{ type: "address" }], [newBeneficiary]);
+}
+
+/** `rotateKey`'s payload: abi.encode(newPqKey). */
+export function rotateKeyPayload(newPqKey: Hex): Hex {
+  return encodeAbiParameters([{ type: "bytes32" }], [newPqKey]);
+}
+
+/** `cancelByPq` and `vetoWalletCancel` sign an empty payload; the action tells them apart. */
+export const EMPTY_PAYLOAD: Hex = "0x";

@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-/// The USDC ERC-20 interface on Arc. 6 decimals. ARCHITECTURE.md §3.3.
+/// The USDC ERC-20 interface on Arc. 6 decimals. ARCHITECTURE.md §3.3, §3.8.
 interface IUSDC {
     function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function balanceOf(address who) external view returns (uint256);
     function isBlacklisted(address who) external view returns (bool);
+    function receiveWithAuthorization(
+        address from, address to, uint256 value,
+        uint256 validAfter, uint256 validBefore, bytes32 nonce,
+        uint8 v, bytes32 r, bytes32 s
+    ) external;
 }
 
 /// Arc PQ Signature Verify precompile. Verified live on mainnet 2026-10-06.
@@ -18,10 +23,6 @@ interface IPQVerify {
 
 /// A standing USDC payment order. Funding is ECDSA, execution is permissionless,
 /// amendment is SLH-DSA only. See ARCHITECTURE.md.
-///
-/// Core slice: open, fund, execute, amend. Not yet implemented: quarantine,
-/// cancelByPq, rotateKey, resolveQuarantine, the wallet-cancel dance, reclaim,
-/// and the EIP-3009 entry points.
 contract Writ {
     // ---------------------------------------------------------------- constants
 
@@ -42,7 +43,9 @@ contract Writ {
     uint64  public constant MIN_PERIOD = 1 hours;
     uint64  public constant MAX_PERIOD = 365 days;
 
-    bytes32 public constant DOMAIN_TAG = keccak256("WRIT_V1");
+    bytes32 public constant DOMAIN_TAG    = keccak256("WRIT_V1");
+    bytes32 public constant OPEN_AUTH_TAG = keccak256("WRIT_V1_OPEN_AUTH");
+    bytes32 public constant FUND_AUTH_TAG = keccak256("WRIT_V1_FUND_AUTH");
 
     // ---------------------------------------------------------------- types
 
@@ -79,6 +82,16 @@ contract Writ {
         bytes32  ref;
     }
 
+    /// EIP-3009 `receiveWithAuthorization` fields other than from / to / value.
+    struct Authorization {
+        uint256  validAfter;
+        uint256  validBefore;
+        bytes32  nonce;
+        uint8    v;
+        bytes32  r;
+        bytes32  s;
+    }
+
     // ---------------------------------------------------------------- storage
 
     mapping(uint256 => Obligation) public obligations;
@@ -100,8 +113,18 @@ contract Writ {
     event Paid(uint256 indexed id, address indexed beneficiary, uint128 amount,
                uint32 periodIndex, bytes32 ref);
 
+    event Quarantined(uint256 indexed id, address indexed beneficiary, uint64 at);
+    /// newBeneficiary == address(0) means the quarantine was resolved by cancelling.
+    event QuarantineResolved(uint256 indexed id, address indexed newBeneficiary);
+    /// pqNonce in Amended / KeyRotated / WalletCancelVetoed is the nonce that
+    /// authorized the action, as in PQVerified.
     event Amended(uint256 indexed id, address indexed newBeneficiary, uint128 newAmount,
                   uint64 newPeriodSeconds, uint64 newEndTime, uint64 pqNonce);
+    event KeyRotated(uint256 indexed id, bytes32 newPqKey, uint64 pqNonce);
+    event Cancelled(uint256 indexed id, uint128 refunded, bool byPqKey);
+    event Reclaimed(uint256 indexed id, uint128 refunded);
+    event WalletCancelBegun(uint256 indexed id, uint64 readyAt);
+    event WalletCancelVetoed(uint256 indexed id, uint64 pqNonce);
     event Completed(uint256 indexed id);
     event ExecutorPaid(uint256 indexed id, address indexed executor, uint128 fee);
     event PQVerified(uint256 indexed id, Action action, bytes32 digest, uint64 pqNonce);
@@ -109,9 +132,15 @@ contract Writ {
     // ---------------------------------------------------------------- errors (§5.10)
 
     error NotActive();
+    error NotQuarantined();
     error NotFundable();
     error NotDue();
     error Underfunded();
+    error TooEarly();
+
+    error NotPayer();
+    error NoCancelPending();
+    error CancelNotReady();
 
     error Expired();
     error BadSignatureLength();
@@ -127,7 +156,11 @@ contract Writ {
     error InvalidExecutorFee();
     error InsufficientInitialFunding();
 
+    error BadAuthorizationNonce();
+
     error TransferFailed();
+    error PayerBlacklisted();
+
     error Reentrancy();
 
     modifier nonReentrant() {
@@ -147,10 +180,44 @@ contract Writ {
         if (!USDC.transferFrom(msg.sender, address(this), initialFunding)) revert TransferFailed();
     }
 
+    /// The EIP-3009 nonce a payer must sign to open obligation `id` with terms `t`.
+    /// chainid is not included: the USDC EIP-712 domain already binds the chain.
+    function openAuthNonce(uint256 id, Terms calldata t) public view returns (bytes32) {
+        return keccak256(abi.encode(OPEN_AUTH_TAG, address(this), id, keccak256(abi.encode(t))));
+    }
+
+    /// Open and fund in one transaction, no approve. Payer = from, not
+    /// msg.sender, so a relayer may submit it: the nonce binds the id and the
+    /// terms, so the authorization can only open exactly what the payer signed.
+    function openWithAuthorization(
+        Terms calldata t, address from, uint128 initialFunding, Authorization calldata a
+    ) external nonReentrant returns (uint256 id) {
+        id = nextId;
+        if (a.nonce != openAuthNonce(id, t)) revert BadAuthorizationNonce();
+        _open(t, from, initialFunding);
+        USDC.receiveWithAuthorization(from, address(this), initialFunding,
+                                      a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
+    }
+
     /// Anyone may top up any live obligation.
     function fund(uint256 id, uint128 amount) external nonReentrant {
         _credit(id, amount, msg.sender);
         if (!USDC.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
+    }
+
+    function fundAuthNonce(uint256 id, bytes32 salt) public view returns (bytes32) {
+        return keccak256(abi.encode(FUND_AUTH_TAG, address(this), id, salt));
+    }
+
+    /// EIP-3009 top-up. The nonce commits to the id; a fresh `salt` makes each
+    /// top-up's nonce unique.
+    function fundWithAuthorization(
+        uint256 id, address from, uint128 value, bytes32 salt, Authorization calldata a
+    ) external nonReentrant {
+        if (a.nonce != fundAuthNonce(id, salt)) revert BadAuthorizationNonce();
+        _credit(id, value, from);
+        USDC.receiveWithAuthorization(from, address(this), value,
+                                      a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
     }
 
     function _open(Terms calldata t, address payer, uint128 initialFunding)
@@ -208,8 +275,15 @@ contract Writ {
         if (o.state != State.Active)       revert NotActive();
         if (block.timestamp < o.nextDueAt) revert NotDue();
 
-        // TODO(quarantine): the isBlacklisted pre-screen (§5.4) lands with the
-        // quarantine slice. Until then a blocklisted beneficiary makes this revert.
+        // ---- the Arc-specific refusal. §1.3, §2.3 ----
+        // A transfer to a blocklisted address reverts, consumes gas, and produces
+        // no receipt. Read first; it is free.
+        if (USDC.isBlacklisted(o.beneficiary)) {
+            o.state = State.Quarantined;
+            emit Quarantined(id, o.beneficiary, uint64(block.timestamp));
+            _payExecutor(id, o, gasStart);       // paid, because this advanced state
+            return;
+        }
 
         uint128 amt = o.amountPerPeriod;
         if (o.balance < amt) revert Underfunded();
@@ -297,6 +371,59 @@ contract Writ {
         emit Amended(id, newBeneficiary, newAmount, newPeriodSeconds, newEndTime, nonce);
     }
 
+    /// Cancel and refund the payer. Active or Quarantined.
+    function cancelByPq(uint256 id, uint64 deadline, bytes calldata pqSig) external nonReentrant {
+        Obligation storage o = obligations[id];
+        _requireLive(o);
+        _requirePq(id, o, Action.Cancel, "", deadline, pqSig);
+        _refundAndClose(id, o, true);
+    }
+
+    /// Replace the key card. Signed by the key being replaced. Active or Quarantined.
+    function rotateKey(uint256 id, bytes32 newPqKey, uint64 deadline, bytes calldata pqSig)
+        external nonReentrant
+    {
+        Obligation storage o = obligations[id];
+        _requireLive(o);
+        if (newPqKey == bytes32(0)) revert InvalidPqKey();
+        uint64 nonce = o.pqNonce;
+        _requirePq(id, o, Action.RotateKey, abi.encode(newPqKey), deadline, pqSig);
+        o.pqKey = newPqKey;
+        emit KeyRotated(id, newPqKey, nonce);
+    }
+
+    /// Point a quarantined obligation at a successor, or cancel it with address(0).
+    /// nextDueAt is untouched, so the period that triggered quarantine is paid
+    /// to the successor on the next execute.
+    function resolveQuarantine(uint256 id, address newBeneficiary, uint64 deadline, bytes calldata pqSig)
+        external nonReentrant
+    {
+        Obligation storage o = obligations[id];
+        if (o.state != State.Quarantined) revert NotQuarantined();
+        if (newBeneficiary != address(0)) _checkBeneficiary(newBeneficiary);
+
+        _requirePq(id, o, Action.ResolveQuarantine, abi.encode(newBeneficiary), deadline, pqSig);
+
+        emit QuarantineResolved(id, newBeneficiary);
+        if (newBeneficiary == address(0)) {
+            _refundAndClose(id, o, true);
+        } else {
+            o.beneficiary = newBeneficiary;
+            o.state       = State.Active;
+        }
+    }
+
+    /// Stop a pending wallet cancel. §5.7.
+    function vetoWalletCancel(uint256 id, uint64 deadline, bytes calldata pqSig) external nonReentrant {
+        Obligation storage o = obligations[id];
+        _requireLive(o);
+        if (o.cancelReadyAt == 0) revert NoCancelPending();
+        uint64 nonce = o.pqNonce;
+        _requirePq(id, o, Action.VetoWalletCancel, "", deadline, pqSig);
+        o.cancelReadyAt = 0;
+        emit WalletCancelVetoed(id, nonce);
+    }
+
     function _requirePq(
         uint256 id, Obligation storage o,
         Action action, bytes memory payload,
@@ -321,7 +448,61 @@ contract Writ {
         o.pqNonce++;                     // consume the nonce only on success
     }
 
+    // ---------------------------------------------------------------- lost-key backstop (§5.7)
+
+    /// Payer starts a 30-day cancel. Payments continue; the key card can veto.
+    /// Calling again restarts the 30 days.
+    function beginWalletCancel(uint256 id) external nonReentrant {
+        Obligation storage o = obligations[id];
+        if (msg.sender != o.payer) revert NotPayer();
+        _requireLive(o);
+        o.cancelReadyAt = uint64(block.timestamp) + WALLET_CANCEL_DELAY;
+        emit WalletCancelBegun(id, o.cancelReadyAt);
+    }
+
+    function finalizeWalletCancel(uint256 id) external nonReentrant {
+        Obligation storage o = obligations[id];
+        if (msg.sender != o.payer) revert NotPayer();
+        _requireLive(o);
+        if (o.cancelReadyAt == 0) revert NoCancelPending();
+        if (block.timestamp < o.cancelReadyAt) revert CancelNotReady();
+        _refundAndClose(id, o, false);
+    }
+
+    /// After endTime + grace, the payer recovers whatever is left. A Completed
+    /// obligation stays Completed; a live one becomes Cancelled. §5.8.
+    function reclaim(uint256 id) external nonReentrant {
+        Obligation storage o = obligations[id];
+        if (msg.sender != o.payer) revert NotPayer();
+        if (o.state != State.Active && o.state != State.Quarantined && o.state != State.Completed) {
+            revert NotActive();
+        }
+        if (block.timestamp < uint256(o.endTime) + RECLAIM_GRACE) revert TooEarly();
+        if (o.state != State.Completed) o.state = State.Cancelled;
+        emit Reclaimed(id, _refundPayer(o));
+    }
+
+    function _refundAndClose(uint256 id, Obligation storage o, bool byPq) private {
+        o.state = State.Cancelled;
+        emit Cancelled(id, _refundPayer(o), byPq);
+    }
+
+    /// Sends the whole balance to the payer. Refunds to a frozen payer revert
+    /// (§5.7): checked first so the caller gets a typed error, not a gas burn.
+    function _refundPayer(Obligation storage o) private returns (uint128 amt) {
+        if (USDC.isBlacklisted(o.payer)) revert PayerBlacklisted();
+        amt             = o.balance;
+        o.balance       = 0;
+        o.cancelReadyAt = 0;
+        totalCommitted -= amt;
+        if (amt > 0 && !USDC.transfer(o.payer, amt)) revert TransferFailed();
+    }
+
     // ---------------------------------------------------------------- term checks
+
+    function _requireLive(Obligation storage o) private view {
+        if (o.state != State.Active && o.state != State.Quarantined) revert NotActive();
+    }
 
     function _checkBeneficiary(address b) private view {
         if (b == address(0) || b == address(this)) revert InvalidBeneficiary();
