@@ -1,4 +1,4 @@
-// Live check of openWithAuthorization against the REAL Arc testnet USDC
+// Live check of openWithAuthorization against REAL Arc USDC
 // (ARCHITECTURE.md §5.8 ASSUMPTION / §11.3 row 7). No mock anywhere.
 //
 //   1. sign an EIP-3009 ReceiveWithAuthorization against the real USDC domain,
@@ -7,8 +7,9 @@
 //   3. the same authorization replayed -> rejected
 //   4. cancelByPq with the order's key card -> refund, so no test funds stay locked
 //
-// Usage: node --env-file=.env scripts/auth-check.ts
-// Writes deployments/auth-check-testnet.json.
+// Usage: node --env-file=.env scripts/auth-check.ts [--mainnet]
+// Testnet by default. Writes deployments/auth-check-<testnet|mainnet>.json.
+// Amounts are a few cents; step 4 refunds the funding.
 
 import { writeFileSync } from "node:fs";
 import { slh_dsa_sha2_128s as S } from "@noble/post-quantum/slh-dsa.js";
@@ -19,13 +20,14 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { Action, EMPTY_PAYLOAD, digestFor } from "../shared/digest.ts";
 import { openAuthNonce, type Terms } from "../shared/auth.ts";
 import {
-  CHAIN_ID, USDC, WRIT, balanceOf, link, now, obligation, payer, pub, root, send, usd, usdcAbi, wallet, writAbi,
+  CHAIN_ID, MAINNET, USDC, WRIT, assertChain, balanceOf, link, now, obligation, payer, pub, requireWrit, root, send, usd,
+  usdcAbi, wallet, writAbi,
 } from "./arc.ts";
 
 const results: { check: string; ok: boolean; tx?: Hash; link?: string; note?: string }[] = [];
 function report(check: string, ok: boolean, note?: string, tx?: Hash) {
   results.push({ check, ok, ...(tx && { tx, link: link(tx) }), ...(note && { note }) });
-  writeFileSync(new URL("deployments/auth-check-testnet.json", root),
+  writeFileSync(new URL(`deployments/auth-check-${MAINNET ? "mainnet" : "testnet"}.json`, root),
     JSON.stringify({ writ: WRIT, usdc: USDC, payer: payer.address, results }, null, 2) + "\n");
   console.log(`\n${ok ? "PASS" : "FAIL"}  ${check}`);
   if (tx) console.log(`      ${link(tx)}`);
@@ -44,17 +46,19 @@ function revertName(e: unknown): string {
 const gasCost = (r: { gasUsed: bigint; effectiveGasPrice: bigint }) => (r.gasUsed * r.effectiveGasPrice) / 10n ** 12n;
 
 async function main() {
-  console.log(`Writ ${WRIT}\nUSDC ${USDC} (real Arc testnet USDC)\npayer ${payer.address}`);
+  requireWrit();
+  await assertChain();
+  console.log(`Writ ${WRIT}\nUSDC ${USDC} (real Arc USDC, chain ${CHAIN_ID})\npayer ${payer.address} (${usd(await balanceOf(payer.address))})`);
 
   const card = S.keygen();
   const id = (await pub.readContract({ address: WRIT, abi: writAbi, functionName: "nextId" })) as bigint;
   const startAt = (await now()) + 60n;
   const terms: Terms = {
     beneficiary: privateKeyToAccount(generatePrivateKey()).address,
-    amountPerPeriod: 100_000n, periodSeconds: 3600n, startAt, endTime: startAt + 3600n,
-    maxExecutorFee: 10_000n, pqKey: toHex(card.publicKey), ref: keccak256(toHex(`AUTH-CHECK-${Date.now()}`)),
+    amountPerPeriod: 10_000n, periodSeconds: 3600n, startAt, endTime: startAt + 3600n,
+    maxExecutorFee: 1_000n, pqKey: toHex(card.publicKey), ref: keccak256(toHex(`AUTH-CHECK-${Date.now()}`)),
   };
-  const FUNDING = 120_000n;
+  const FUNDING = 20_000n; // 0.02 USDC, refunded in step 4
 
   // The nonce from shared/auth.ts must equal the contract's own view.
   const nonce = openAuthNonce(WRIT, id, terms);
@@ -99,7 +103,7 @@ async function main() {
   const payerDelta = payerBefore - (await balanceOf(payer.address));
   const ok = tx.receipt.status === "success" && opened[0]?.args.id === id && o.state === "Active" &&
     o.payer === payer.address && o.balance === FUNDING && writDelta === FUNDING && !usedBefore && usedAfter;
-  report("openWithAuthorization with REAL testnet USDC (no approve)", ok,
+  report(`openWithAuthorization with REAL ${MAINNET ? "MAINNET" : "testnet"} USDC (no approve)`, ok,
     `order #${id} ${o.state}, payer ${o.payer}, balance ${usd(o.balance)}; Writ received ${usd(writDelta)}; ` +
     `payer paid ${usd(payerDelta)} (= ${usd(FUNDING)} funding + ${usd(gasCost(tx.receipt))} gas; on Arc gas is USDC); ` +
     `USDC authorizationState ${usedBefore} -> ${usedAfter}; gas ${tx.receipt.gasUsed}`, tx.hash);
@@ -125,7 +129,8 @@ async function main() {
     `refund ${usd(refunded)}, gas ${c.receipt.gasUsed}`, c.hash);
 
   const allOk = results.every((x) => x.ok);
-  console.log(`\n${allOk ? "RESULT: openWithAuthorization WORKS with real Arc testnet USDC." : "RESULT: FAILED — see above."}`);
+  console.log(`\npayer balance now ${usd(await balanceOf(payer.address))}`);
+  console.log(`\n${allOk ? `RESULT: openWithAuthorization WORKS with real Arc ${MAINNET ? "MAINNET" : "testnet"} USDC.` : "RESULT: FAILED — see above."}`);
   process.exit(allOk ? 0 : 1);
 }
 

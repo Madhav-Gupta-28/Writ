@@ -8,7 +8,11 @@
     "test:sol": "cd contracts && forge test",
     "test:fork": "cd contracts && forge test --fork-url arc_testnet --match-contract ForkTest -vv",
     "pq-check": "node scripts/pq-check.ts",
-    "flow": "node --env-file=.env scripts/flow.ts"
+    "flow": "node --env-file=.env scripts/flow.ts",
+    "rehearse": "node --env-file=.env scripts/rehearse.ts",
+    "deploy": "node --env-file=.env scripts/deploy.ts",
+    "auth-check": "node --env-file=.env scripts/auth-check.ts",
+    "open-order": "node --env-file=.env scripts/open-order.ts"
   },
   "dependencies": {
     "@noble/post-quantum": "0.7.1",
