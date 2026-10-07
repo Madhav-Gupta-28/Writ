@@ -8,6 +8,8 @@ ARCHITECTURE.md is the source of truth and that shared/digest.ts must byte-match
 
 Writ is a hackathon entry (Arc Microgrants, deadline **2026-10-14 23:59 ET**). As of 2026-10-07 the repo holds only the spec: `contracts/`, `frontend/`, `scripts/`, `shared/` and `test/` exist but are empty. Nothing is deployed.
 
+pq-check passed on testnet: pure sign verifies, .internal fails. Signing takes ~1.85s locally.
+
 **`ARCHITECTURE.md` is the source of truth.** It specifies the contract in full (§5), its invariants (§10), the test plan (§11), the deploy runbook (§12) and the build order (§14). Read the relevant section before implementing something. When the code has to deviate from the spec, update the spec in the same change. Values marked **ESTIMATE** or **ASSUMPTION** there are unverified. Replace them with measured numbers once you have them.
 
 The README must not claim anything that isn't true yet. Add the mainnet address, the gas table and the live link only once they exist.
