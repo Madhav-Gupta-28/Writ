@@ -577,9 +577,9 @@ relevant to a contract that custodies USDC:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Browser (Next.js, static, no backend)                          │
+│  Browser (Vite + React, static, no backend)  web/               │
 │                                                                 │
-│   key-card.ts      @noble/post-quantum, SLH-DSA-SHA2-128s       │
+│   keycard.ts       @noble/post-quantum, SLH-DSA-SHA2-128s       │
 │                    keygen · sign(digest) · encrypted export     │
 │                    NEVER transmitted. Download forced before    │
 │                    an obligation can be opened.                 │
@@ -1349,7 +1349,12 @@ until someone funds it.
    32-byte public key goes on chain; the 64-byte secret stays local.
 3. The UI **blocks** until the encrypted key card is downloaded. There is no
    recovery path for a key card lost before step 5, and the interface refuses to
-   let that happen.
+   let that happen. A browser can't confirm that a download finished, so the
+   app asks the user to upload the saved file and unlock it with the password
+   before the form opens. The file is the 64-byte secret encrypted with AES-GCM,
+   under a key from PBKDF2-SHA256 (600,000 iterations, random salt). The public
+   key is bound in as associated data, and after decrypting the app checks that
+   the secret contains that public key (`web/src/lib/keycard.ts`).
 4. Enter beneficiary, amount, interval, end date, executor-fee cap, reference.
    `endTime` is mandatory and the field explains why (§2.4).
 5. The UI reads `nextId()`, computes `openAuthNonce(id, terms)` (§5.8), and the
@@ -1795,9 +1800,31 @@ README. It is the cheapest credibility in the submission.
 
 ### 12.6 Frontend
 
-Static Next.js on Vercel's free tier. `@noble/post-quantum@0.7.1` pinned, pure
-JS, no WASM. Use `S.sign(msg, secretKey)` — the **pure** FIPS-205 API — and
-never `S.internal.sign` (§3.4). Expect ~825 ms per signature.
+Static Vite + React + TypeScript app in `web/` (wagmi, injected wallet only,
+viem), deployable to any static host. `web/vercel.json` rewrites routes to
+`index.html` for Vercel. `@noble/post-quantum@0.7.1` pinned, pure JS, no WASM.
+Use `S.sign(msg, secretKey)` — the **pure** FIPS-205 API — and never
+`S.internal.sign` (§3.4). Signing runs in a Web Worker (`signer.worker.ts`).
+It took 1.7–3.8 s in tests, not ~825 ms, so the UI shows a spinner.
+
+Both networks live in one file, `web/src/config.ts`. Testnet is the default;
+`?net=mainnet` switches, and a banner shows on mainnet. The app imports
+`shared/digest.ts`, `shared/auth.ts` and `shared/abi/writ.ts`, the same code
+the contract tests pin. Before every key-card signature it also checks its
+digest against the deployed contract's `digestFor`.
+
+`web/e2e/flow.e2e.ts` drives the built site in real Chrome against testnet. It
+injects a test wallet whose requests are answered in Node, so the private key
+never enters the page. The wallet starts on the wrong chain, so the add-network
+path is exercised. The test covers:
+
+- open, including the key-card download and verification
+- execute
+- amend
+- begin a wallet cancel, then veto it
+- rotate the key card, and confirm the old card is refused
+- cancel with a refund
+- the mainnet order page, read-only
 
 Do not build a historical payments table on the public RPC; it does not serve
 log history (§3.9).
