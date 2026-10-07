@@ -3,9 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test test/*.test.ts",
+    "fixtures": "node scripts/gen-fixtures.ts",
+    "test:sol": "cd contracts && forge test",
+    "test:fork": "cd contracts && forge test --fork-url arc_testnet --match-contract WritForkTest -vv",
     "pq-check": "node scripts/pq-check.ts"
   },
   "dependencies": {
-    "@noble/post-quantum": "0.7.1"
+    "@noble/post-quantum": "0.7.1",
+    "viem": "2.57.3"
   }
 }
