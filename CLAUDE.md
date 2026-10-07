@@ -63,6 +63,7 @@ npm run abi                         # after changing Writ.sol: forge build, then
 cd web && npm install && npm run dev     # http://localhost:5173
 cd web && npm test                       # unit tests (key card crypto, money/time, errors)
 cd web && npm run e2e                    # builds, then drives real Chrome on testnet (~4 min, real txs)
+cd web && node e2e/screens.ts            # design screenshots (desktop + mobile) to web/e2e/out/screens, flags horizontal overflow
 node scripts/gen-fixtures.ts --pq   # also regenerate the real-signature fork fixture
 cd contracts && forge test --match-test <name>
 ```

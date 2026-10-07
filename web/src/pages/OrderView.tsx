@@ -1,187 +1,317 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAccount } from "wagmi";
+import type { Address } from "viem";
+import {
+  ChevronDown, CircleCheck, CirclePlus, Clock, FileText, HandCoins, KeyRound, ShieldAlert, ShieldX, Snowflake, Wallet, XCircle,
+} from "lucide-react";
+import type { Network } from "../config";
 import { useAction, useClient, useNetwork, useOrder, useParamId } from "../hooks";
 import { humanError } from "../lib/errors";
-import { formatDate, formatDay, intervalLabel, relative, short, usdc } from "../lib/format";
-import { estimateReward, runway, type Order } from "../lib/order";
+import { formatDate, formatDay, formatUsdc, intervalLabel, relative, short, usdc } from "../lib/format";
+import { simulateHijack, type Attempt } from "../lib/hijack";
+import { estimateReward, paymentsLeft, runway, type Order } from "../lib/order";
 import { events, sendWrit } from "../lib/write";
-import { Addr, Card, NetLink, Spinner, StateBadge, StatusLine, WalletGate } from "../ui";
+import { Addr, Note, Skel, StateBadge, StatusLine, Tabs, WalletGate } from "../ui";
+import { KeyCardPanel } from "./KeyCardPanel";
+import { PayerPanel } from "./PayerPanel";
 import { TopUp } from "./TopUp";
 
-function ExecutePanel({ order, now, gasPrice, refetch }: { order: Order; now: bigint; gasPrice: bigint; refetch: () => void }) {
-  const net = useNetwork();
+type Tab = "funds" | "keycard" | "payer" | "details";
+
+/** Chain time that keeps ticking between refreshes. */
+function useLiveNow(chainNow: bigint | undefined, fetchedAt: number) {
+  const [t, setT] = useState(() => Date.now());
+  useEffect(() => {
+    const i = setInterval(() => setT(Date.now()), 1000);
+    return () => clearInterval(i);
+  }, []);
+  if (chainNow === undefined) return undefined;
+  return chainNow + BigInt(Math.max(0, Math.floor((t - fetchedAt) / 1000)));
+}
+
+function countdown(s: bigint) {
+  let n = Number(s < 0n ? 0n : s);
+  const d = Math.floor(n / 86400); n -= d * 86400;
+  const h = Math.floor(n / 3600); n -= h * 3600;
+  const m = Math.floor(n / 60); const sec = n - m * 60;
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d > 0 ? `${d}d ` : ""}${p(h)}:${p(m)}:${p(sec)}`;
+}
+
+function OrderHero({ net, order, now }: { net: Network; order: Order; now: bigint }) {
+  const rw = runway(order);
+  const live = order.state === "Active" || order.state === "Quarantined";
+  const total = order.periodsPaid + Number(live ? paymentsLeft(order) : 0n);
+  const pct = total > 0 ? Math.round((order.periodsPaid / total) * 100) : 100;
+  return (
+    <section className="card order-hero">
+      <p className="pays">
+        Pays <span className="amt">{usdc(order.amountPerPeriod)}</span> to <Addr net={net} a={order.beneficiary} /> {intervalLabel(order.periodSeconds)}
+      </p>
+      <div className="progress-wrap">
+        <div className="progress" role="progressbar" aria-valuenow={order.periodsPaid} aria-valuemin={0} aria-valuemax={total}>
+          <span style={{ width: `${Math.max(pct, order.periodsPaid > 0 ? 3 : 0)}%` }} />
+        </div>
+        <div className="progress-labels num">
+          <span><strong>{order.periodsPaid}</strong> of {total} payments made</span>
+          <span>{live ? `${total - order.periodsPaid} to go` : order.state === "Completed" ? "complete" : "stopped"}</span>
+        </div>
+      </div>
+      <div className="metrics">
+        <div className="metric">
+          <div className="eyebrow">Balance left</div>
+          <div className="v">{formatUsdc(order.balance)}<small>USDC</small></div>
+          <div className={`s ${live && !rw.fullyFunded && rw.funded < 3n ? "warn" : ""}`}>
+            {!live ? "No more payments"
+              : rw.needed === 0n ? "No payments left"
+              : rw.fullyFunded ? "Covers every remaining payment"
+              : rw.funded === 0n ? "Not enough for the next payment"
+              : `Covers ${rw.funded} more, until ${formatDay(rw.lastFundedAt!)}`}
+          </div>
+        </div>
+        <div className="metric">
+          <div className="eyebrow">Payments left</div>
+          <div className="v">{live ? rw.needed.toString() : "0"}</div>
+          <div className="s">{live ? `${intervalLabel(order.periodSeconds)}` : order.state === "Completed" ? "All paid" : "Cancelled"}</div>
+        </div>
+        <div className="metric">
+          <div className="eyebrow">Ends</div>
+          <div className="v">{formatDay(order.endTime)}</div>
+          <div className="s">{order.endTime > now ? relative(order.endTime, now) : "ended"}</div>
+        </div>
+      </div>
+      {live && !rw.fullyFunded && rw.needed > 0n && (
+        <div style={{ marginTop: 16 }}><Note icon={ShieldAlert} kind="warn">Running low: {usdc(rw.shortfall)} more would cover every remaining payment. Anyone can add money below.</Note></div>
+      )}
+      {order.state === "Quarantined" && (
+        <div style={{ marginTop: 16 }}><Note icon={Snowflake} kind="ice">The recipient has been frozen by Circle (the issuer of USDC), so paying them would fail. Instead of failing, this order paused itself. Nothing is lost. The key card holder can pick a new recipient or cancel and refund.</Note></div>
+      )}
+      {live && order.cancelReadyAt > 0n && (
+        <div style={{ marginTop: 16 }}><Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it becomes final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note></div>
+      )}
+    </section>
+  );
+}
+
+function PayCard({ net, order, now, gasPrice, refetch }: { net: Network; order: Order; now: bigint; gasPrice: bigint; refetch: () => void }) {
   const client = useClient(net);
   const action = useAction();
   const due = order.state === "Active" && now >= order.nextDueAt;
-  const reward = estimateReward(order, gasPrice);
   const underfunded = order.balance < order.amountPerPeriod;
+  const reward = estimateReward(order, gasPrice);
 
-  const execute = () =>
+  const pay = () =>
     action.run(async (step) => {
       const { hash, receipt } = await sendWrit(client, net, "execute", [order.id], step);
       const ev = events(receipt);
-      const paid = ev.find((e) => e.eventName === "Paid")?.args as { amount: bigint; periodIndex: number } | undefined;
+      const paid = ev.find((e) => e.eventName === "Paid")?.args as { amount: bigint } | undefined;
       const fee = (ev.find((e) => e.eventName === "ExecutorPaid")?.args as { fee: bigint } | undefined)?.fee ?? 0n;
-      const quarantined = ev.some((e) => e.eventName === "Quarantined");
       refetch();
-      if (quarantined) {
-        return { message: `The recipient's USDC is frozen, so instead of failing the order paused itself. You earned ${usdc(fee)} for recording that.`, hash };
+      if (ev.some((e) => e.eventName === "Quarantined")) {
+        return { message: `The recipient is frozen, so the order paused itself instead of failing. You earned a ${usdc(fee)} tip.`, hash };
       }
-      return { message: `Paid ${usdc(paid?.amount ?? order.amountPerPeriod)} to ${short(order.beneficiary)} (payment #${paid?.periodIndex ?? "?"}). You earned ${usdc(fee)}.`, hash };
+      return { message: `Paid ${usdc(paid?.amount ?? order.amountPerPeriod)} to ${short(order.beneficiary)}. You earned a ${usdc(fee)} tip.`, hash };
     }, { order, now, action: "execute" });
 
-  if (order.state !== "Active") return null;
-
   return (
-    <Card className={due ? "execute due" : "execute"}>
-      {due && underfunded ? (
+    <section className="card pay-card">
+      <div className="eyebrow">Next payment</div>
+      {order.state === "Active" ? (
         <>
-          <h2>A payment is due, but the order is out of funds</h2>
-          <p>It needs {usdc(order.amountPerPeriod)} for the next payment and holds {usdc(order.balance)}. Anyone can top it up below. Nothing is lost while it waits.</p>
-        </>
-      ) : due ? (
-        <>
-          <h2>A payment is due now</h2>
-          <p>
-            Anyone can send it. Press the button and the order pays {usdc(order.amountPerPeriod)} to {short(order.beneficiary)}.
-            You'll be reimbursed about <strong>{usdc(reward.fee)}</strong> (your network fee is about {usdc(reward.gasCost)}).
-          </p>
-          <WalletGate net={net} why="Connect any wallet to execute this payment and earn the reward.">
-            <button className="btn btn-xl" onClick={execute} disabled={action.busy}>Execute payment</button>
-          </WalletGate>
+          <div className={`countdown ${due ? "due" : ""}`} aria-live="off">{due ? "Due now" : countdown(order.nextDueAt - now)}</div>
+          <div className="countdown-sub">{due ? `Was due ${formatDate(order.nextDueAt)}` : formatDate(order.nextDueAt)}</div>
+          {due && underfunded ? (
+            <Note icon={Wallet} kind="warn">It needs {usdc(order.amountPerPeriod)} and holds {usdc(order.balance)}. Add money below and anyone can pay it.</Note>
+          ) : !due ? (
+            <button className="btn btn-primary btn-xl" disabled><HandCoins size={20} />Pay now</button>
+          ) : (
+            <WalletGate net={net} why="Connect any wallet to send this payment and earn the tip.">
+              <button className="btn btn-primary btn-xl" onClick={pay} disabled={action.busy}><HandCoins size={20} />Pay now</button>
+            </WalletGate>
+          )}
+          <div className="reward"><HandCoins size={16} className="icon" /><span>{due ? "Anyone can press it." : "When the timer ends, anyone can press it."} You'd earn a <strong>{usdc(reward.fee)}</strong> tip (network fee ≈ {usdc(reward.gasCost)}).</span></div>
           <StatusLine status={action.status} net={net} />
         </>
       ) : (
         <>
-          <h2>Next payment {relative(order.nextDueAt, now)}</h2>
-          <p className="muted">
-            Due {formatDate(order.nextDueAt)}. When it's due, anyone can trigger it here and earn about {usdc(reward.fee)}.
+          <div className="countdown" style={{ fontSize: "1.8rem" }}>
+            {order.state === "Quarantined" ? "Frozen" : order.state === "Completed" ? "All paid" : "Cancelled"}
+          </div>
+          <p className="text-2">
+            {order.state === "Quarantined" ? "Payments are on hold until the key card picks a new recipient or cancels."
+              : order.state === "Completed" ? "Every payment has been made." : "This order won't pay again."}
           </p>
-          {action.status.kind !== "idle" && <StatusLine status={action.status} net={net} />}
+          <StatusLine status={action.status} net={net} />
         </>
       )}
-    </Card>
+    </section>
   );
 }
 
-export function OrderView() {
-  const net = useNetwork();
+function HijackCard({ net, order, now }: { net: Network; order: Order; now: bigint }) {
   const client = useClient(net);
   const { address } = useAccount();
-  const id = useParamId(useParams().id);
-  const q = useOrder(net, id);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ who: Address; asPayer: boolean; attempts: Attempt[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const who = (address ?? order.payer) as Address;
 
-  if (id === null) return <Card title="Not an order number"><p>Order numbers are whole numbers, like 2.</p></Card>;
-  if (q.isLoading) return <Card><Spinner label={`Loading order #${id} from ${net.label}…`} /></Card>;
-  if (q.error) return <Card title="Couldn't load this order"><p>{humanError(q.error)}</p><button className="btn" onClick={() => q.refetch()}>Try again</button></Card>;
-  const { order, now, gasPrice } = q.data!;
-  if (order.state === "None") {
-    return (
-      <Card title={`No order #${id} on ${net.label}`}>
-        <p>Check the number, or switch network at the top of the page.</p>
-      </Card>
-    );
-  }
-
-  const rw = runway(order);
-  const isPayer = address?.toLowerCase() === order.payer.toLowerCase();
-  const live = order.state === "Active" || order.state === "Quarantined";
+  const run = async () => {
+    setBusy(true); setErr(null); setRes(null);
+    try {
+      const attempts = await simulateHijack(client, net, order, who, now);
+      setRes({ who, asPayer: who.toLowerCase() === order.payer.toLowerCase(), attempts });
+    } catch (e) {
+      setErr(humanError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const allBlocked = res?.attempts.every((a) => a.blocked);
 
   return (
-    <div className="stack">
+    <section className="card hijack-card">
+      <h3><ShieldX size={18} style={{ color: "var(--danger)" }} /> Try to hijack this order</h3>
+      <p className="text-2" style={{ fontSize: "0.93rem" }}>
+        Play the thief. We'll try to redirect the payments{address ? <> using <strong>your wallet</strong></> : <> using <strong>the wallet that funded it</strong>, the one a hacker would steal</>}.
+        It's a free simulation: nothing is signed or sent.
+      </p>
+      <button className="btn btn-danger btn-block" onClick={run} disabled={busy}>
+        {busy ? <><span className="spinner" /> Trying…</> : <><ShieldX size={18} /> Try to hijack</>}
+      </button>
+      {err && <div className="status error"><XCircle size={18} />{err}</div>}
+      {res && (allBlocked ? (
+        <div className="result-blocked" role="status">
+          <div className="big"><ShieldX size={24} /> BLOCKED</div>
+          <div className="blocked-sub">{res.attempts.length} of {res.attempts.length} attempts refused by the contract, as {res.asPayer ? "the funding wallet" : "your wallet"} <span className="mono">{short(res.who)}</span>.</div>
+          <ul className="attempts">
+            {res.attempts.map((a) => (
+              <li key={a.label}><XCircle size={16} className="icon" /><span><strong>{a.label}</strong><span className="why">{a.reason}</span></span></li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="result-open">
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {res.attempts.map((a) => <li key={a.label}><strong>{a.label}:</strong> {a.blocked ? `blocked: ${a.reason}` : a.reason}</li>)}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function Details({ net, order }: { net: Network; order: Order }) {
+  return (
+    <div className="card stack">
+      <dl className="kv">
+        <dt>Recipient</dt><dd><Addr net={net} a={order.beneficiary} full /></dd>
+        <dt>Funded by</dt><dd><Addr net={net} a={order.payer} full /></dd>
+        <dt>Amount</dt><dd>{usdc(order.amountPerPeriod)} {intervalLabel(order.periodSeconds)}</dd>
+        <dt>Ends</dt><dd>{formatDate(order.endTime)}</dd>
+        <dt>Max tip per payment</dt><dd>{usdc(order.maxExecutorFee)}</dd>
+        <dt>Contract</dt><dd><Addr net={net} a={net.writ} full /></dd>
+      </dl>
+      <details className="more">
+        <summary>Technical details <ChevronDown size={16} /></summary>
+        <div className="more-body">
+          <dl className="kv">
+            <dt>Key card public key</dt><dd className="mono">{order.pqKey}</dd>
+            <dt>Key card actions used (nonce)</dt><dd>{order.pqNonce.toString()}</dd>
+            <dt>Reference hash</dt><dd className="mono">{order.ref}</dd>
+            <dt>Signature scheme</dt><dd>SLH-DSA-SHA2-128s (FIPS 205), checked by Arc's precompile at <span className="mono">0x1800…0004</span></dd>
+            <dt>Next payment (unix)</dt><dd className="mono">{order.nextDueAt.toString()}</dd>
+          </dl>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function SkeletonOrder() {
+  return (
+    <div aria-busy="true" aria-label="Loading order">
+      <div className="order-head"><Skel w={180} h={32} /><Skel w={80} h={24} /></div>
+      <div className="order-layout">
+        <div className="stack">
+          <section className="card order-hero stack">
+            <Skel w="80%" h={30} />
+            <Skel h={10} style={{ marginTop: 18 }} />
+            <div className="metrics" style={{ marginTop: 10 }}>{[0, 1, 2].map((i) => <div key={i} className="metric"><Skel w="50%" h={12} /><Skel w="70%" h={28} style={{ marginTop: 10 }} /></div>)}</div>
+          </section>
+          <Skel h={48} />
+        </div>
+        <div className="side-col">
+          <section className="card pay-card"><Skel w="40%" h={12} /><Skel w="80%" h={40} /><Skel h={56} /></section>
+          <section className="card hijack-card"><Skel w="70%" h={18} /><Skel h={44} /></section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function OrderView({ initialTab }: { initialTab?: Tab }) {
+  const net = useNetwork();
+  const client = useClient(net);
+  const id = useParamId(useParams().id);
+  const q = useOrder(net, id);
+  const now = useLiveNow(q.data?.now, q.dataUpdatedAt);
+  const [tab, setTab] = useState<Tab>(initialTab ?? "funds");
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+
+  if (id === null) return <div className="card"><h2>That isn't an order number</h2><p className="text-2" style={{ marginTop: 8 }}>Order numbers are whole numbers, like 2.</p></div>;
+  if (q.isLoading || !q.data || now === undefined) {
+    if (q.error) return <div className="card stack"><h2>Couldn't load this order</h2><p className="text-2">{humanError(q.error)}</p><div><button className="btn" onClick={() => q.refetch()}>Try again</button></div></div>;
+    return <SkeletonOrder />;
+  }
+  const { order, gasPrice } = q.data;
+  if (order.state === "None") {
+    return <div className="card"><h2>No order #{id.toString()} on {net.label}</h2><p className="text-2" style={{ marginTop: 8 }}>Check the number, or switch network at the top of the page.</p></div>;
+  }
+  const refetch = () => q.refetch();
+
+  const tabs: { key: Tab; label: string; icon: typeof CirclePlus }[] = [
+    { key: "funds", label: "Add money", icon: CirclePlus },
+    { key: "keycard", label: "Key card", icon: KeyRound },
+    { key: "payer", label: "Funding wallet", icon: Wallet },
+    { key: "details", label: "Details", icon: FileText },
+  ];
+
+  return (
+    <div>
       <div className="order-head">
         <h1>Order #{order.id.toString()}</h1>
         <StateBadge state={order.state} />
-        <span className="net-tag">{net.label}</span>
+        <span className="muted">{net.label}</span>
       </div>
-
-      <Card>
-        <p className="order-sentence">
-          Pays <strong>{usdc(order.amountPerPeriod)}</strong> {intervalLabel(order.periodSeconds)} to{" "}
-          <Addr net={net} a={order.beneficiary} />, until {formatDay(order.endTime)}.
-        </p>
-        <dl className="stats">
-          <div><dt>Balance</dt><dd>{usdc(order.balance)}</dd></div>
-          <div><dt>Payments made</dt><dd>{order.periodsPaid}</dd></div>
-          <div>
-            <dt>Next payment</dt>
-            <dd>{order.state === "Active" ? <>{formatDate(order.nextDueAt)}<small>{relative(order.nextDueAt, now)}</small></> : "None scheduled"}</dd>
+      <div className="order-layout">
+        <div className="area-hero"><OrderHero net={net} order={order} now={now} /></div>
+          <div className="area-tabs">
+            <Tabs tabs={tabs} value={tab} onChange={setTab} />
+            <div className="tab-panel" role="tabpanel">
+              {tab === "funds" && (
+                <div className="card panel-grid">
+                  <div className="stack">
+                    <h3 className="row"><CirclePlus size={18} /> Add money</h3>
+                    <p className="text-2 readable">Anyone can top up an order. The money can only ever go to the recipient, to whoever presses Pay (a small capped tip), or back to the wallet that funded it.</p>
+                  </div>
+                  <TopUp net={net} client={client} order={order} suggested={runway(order).shortfall} onDone={refetch} />
+                </div>
+              )}
+              {tab === "keycard" && (
+                <KeyCardPanel net={net} order={order} now={now} refetch={refetch} />
+              )}
+              {tab === "payer" && <PayerPanel net={net} client={client} order={order} now={now} refetch={refetch} />}
+              {tab === "details" && <Details net={net} order={order} />}
+            </div>
           </div>
-          <div>
-            <dt>Balance lasts</dt>
-            <dd>
-              {!live ? "No more payments"
-                : rw.needed === 0n ? "No payments left"
-                : rw.fullyFunded ? <>Every remaining payment<small>{rw.needed.toString()} to go</small></>
-                : rw.funded === 0n ? <span className="warn">Not enough for the next payment</span>
-                : <span className={rw.funded < 3n ? "warn" : ""}>{rw.funded.toString()} more payment{rw.funded === 1n ? "" : "s"}<small>until {formatDay(rw.lastFundedAt!)}</small></span>}
-            </dd>
-          </div>
-        </dl>
-        {live && !rw.fullyFunded && rw.needed > 0n && (
-          <p className="warn-box">
-            {rw.funded < 3n ? "Running low. " : ""}The balance covers {rw.funded.toString()} of the {rw.needed.toString()} payments left.
-            {" "}{usdc(rw.shortfall)} more would fund every one.
-          </p>
-        )}
-      </Card>
-
-      {order.state === "Quarantined" && (
-        <Card title="Paused: the recipient's USDC is frozen" className="alert">
-          <p>
-            Circle has blocklisted the recipient, so a transfer to them would fail. Instead of burning gas on failures, Writ paused
-            the order and recorded it on-chain. Nothing is lost. The holder of the key card can point the order at a new recipient,
-            or cancel it and refund the payer.
-          </p>
-          <NetLink to={`/order/${order.id}/manage`} className="btn">Resolve with key card</NetLink>
-        </Card>
-      )}
-
-      {live && order.cancelReadyAt > 0n && (
-        <Card title="The payer has given notice to cancel" className="alert">
-          <p>
-            The payer's wallet started a 30-day cancellation. Payments continue meanwhile. It can be finalized{" "}
-            {relative(order.cancelReadyAt, now)} ({formatDate(order.cancelReadyAt)}) unless the key card vetoes it.
-          </p>
-        </Card>
-      )}
-
-      <ExecutePanel order={order} now={now} gasPrice={gasPrice} refetch={() => q.refetch()} />
-
-      {live && (
-        <Card title="Add funds">
-          <p className="muted">Anyone can top up an order. The money can only ever go to the recipient, to executors (capped), or back to the payer.</p>
-          <TopUp net={net} client={client} order={order} suggested={rw.shortfall} onDone={() => q.refetch()} />
-        </Card>
-      )}
-
-      <div className="grid2">
-        <Card title="Key card holder">
-          <p className="muted">Change the recipient or amount, rotate the key card, cancel, resolve a pause, or veto a wallet cancellation.</p>
-          <NetLink to={`/order/${order.id}/manage`} className="btn btn-ghost">Manage with key card</NetLink>
-        </Card>
-        <Card title="Payer">
-          <p className="muted">
-            Opened by <Addr net={net} a={order.payer} />{isPayer ? " (you)" : ""}. The payer can give 30 days' notice to cancel, reclaim
-            leftovers after the end date, or top up.
-          </p>
-          <NetLink to={`/order/${order.id}/payer`} className="btn btn-ghost">Payer actions</NetLink>
-        </Card>
+        <aside className="side-col area-side">
+          <PayCard net={net} order={order} now={now} gasPrice={gasPrice} refetch={refetch} />
+          <HijackCard net={net} order={order} now={now} />
+          {order.state === "Active" && <p className="muted row" style={{ fontSize: "0.85rem", gap: 6 }}><CircleCheck size={14} /> Live from the chain, refreshed every 10 seconds.</p>}
+        </aside>
       </div>
-
-      <details className="card details">
-        <summary>Details</summary>
-        <dl className="kv">
-          <dt>Recipient</dt><dd className="mono break">{order.beneficiary}</dd>
-          <dt>Payer</dt><dd className="mono break">{order.payer}</dd>
-          <dt>Ends</dt><dd>{formatDate(order.endTime)}</dd>
-          <dt>Max executor reward</dt><dd>{usdc(order.maxExecutorFee)} per payment</dd>
-          <dt>Key card fingerprint</dt><dd className="mono break">{order.pqKey}</dd>
-          <dt>Key card actions used</dt><dd>{order.pqNonce.toString()}</dd>
-          <dt>Reference hash</dt><dd className="mono break">{order.ref}</dd>
-          <dt>Contract</dt><dd><Addr net={net} a={net.writ} label={net.writ} /></dd>
-        </dl>
-      </details>
     </div>
   );
 }
