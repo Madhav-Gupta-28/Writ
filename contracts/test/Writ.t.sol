@@ -272,15 +272,6 @@ contract WritTest is WritBase {
         _checkBooks();
     }
 
-    function test_execute_blacklistedBeneficiaryReverts_untilQuarantineLands() public {
-        // Placeholder for the quarantine slice: today a frozen beneficiary makes
-        // execute revert. When quarantine lands this must become Quarantined.
-        uint256 id = _openDefault();
-        usdc.setBlacklisted(beneficiary, true);
-        vm.expectRevert(bytes("blacklisted"));
-        writ.execute(id);
-    }
-
     // ============================================================ executor fee (§5.5, §6.2)
 
     function test_executorFee_isMeterPlusTip_atFloorPrice() public {

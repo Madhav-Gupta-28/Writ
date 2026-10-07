@@ -68,5 +68,96 @@
       "deadline": "1",
       "digest": "0x414a87fac3c63fac588ef6d89f5603e6b5c462d6020741318d89c20b27810c00"
     }
+  ],
+  "openAuthCount": 4,
+  "openAuth": [
+    {
+      "name": "open-id-1",
+      "writ": "0x00000000000000000000000000000000000b0001",
+      "id": "1",
+      "terms": {
+        "beneficiary": "0x00000000000000000000000000000000000beef1",
+        "amountPerPeriod": "1000000",
+        "periodSeconds": "3600",
+        "startAt": "1800000000",
+        "endTime": "1800086400",
+        "maxExecutorFee": "20000",
+        "pqKey": "0x0000000000000000000000000000000000000000000000000000000000000abc",
+        "ref": "0x0000000000000000000000000000000000000000000000000000000000005eed"
+      },
+      "nonce": "0xa33d908414b15d0b076d05ba9e655d0941cdbf12b084fca95209e2896506de90"
+    },
+    {
+      "name": "open-id-2-same-terms",
+      "writ": "0x00000000000000000000000000000000000b0001",
+      "id": "2",
+      "terms": {
+        "beneficiary": "0x00000000000000000000000000000000000beef1",
+        "amountPerPeriod": "1000000",
+        "periodSeconds": "3600",
+        "startAt": "1800000000",
+        "endTime": "1800086400",
+        "maxExecutorFee": "20000",
+        "pqKey": "0x0000000000000000000000000000000000000000000000000000000000000abc",
+        "ref": "0x0000000000000000000000000000000000000000000000000000000000005eed"
+      },
+      "nonce": "0xfb6e7daad0ad9e9dbdb9f0f43da568b7cbadc07e3db6164ba31b9ebfb0a68b2d"
+    },
+    {
+      "name": "open-other-beneficiary",
+      "writ": "0x00000000000000000000000000000000000b0001",
+      "id": "1",
+      "terms": {
+        "beneficiary": "0x00000000000000000000000000000000000beef2",
+        "amountPerPeriod": "1000000",
+        "periodSeconds": "3600",
+        "startAt": "1800000000",
+        "endTime": "1800086400",
+        "maxExecutorFee": "20000",
+        "pqKey": "0x0000000000000000000000000000000000000000000000000000000000000abc",
+        "ref": "0x0000000000000000000000000000000000000000000000000000000000005eed"
+      },
+      "nonce": "0x79547348c0333c781f080e77c91c8516aa1163c0a3126a44ea8e9a1c9070ebe6"
+    },
+    {
+      "name": "open-other-writ-max-values",
+      "writ": "0xffffffffffffffffffffffffffffffffffff0002",
+      "id": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "terms": {
+        "beneficiary": "0x00000000000000000000000000000000000beef1",
+        "amountPerPeriod": "340282366920938463463374607431768211455",
+        "periodSeconds": "18446744073709551615",
+        "startAt": "18446744073709551615",
+        "endTime": "18446744073709551615",
+        "maxExecutorFee": "340282366920938463463374607431768211454",
+        "pqKey": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ref": "0x0000000000000000000000000000000000000000000000000000000000005eed"
+      },
+      "nonce": "0x09b80e62c89546bc0aa75412530140c11f8fefc4611760d48704634b3455cda2"
+    }
+  ],
+  "fundAuthCount": 3,
+  "fundAuth": [
+    {
+      "name": "fund-id-1",
+      "writ": "0x00000000000000000000000000000000000b0001",
+      "id": "1",
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "nonce": "0xb08b6b67479f7f7934d3759f263de4a746a352e340fe7962a8a618e221ffc00b"
+    },
+    {
+      "name": "fund-id-2-same-salt",
+      "writ": "0x00000000000000000000000000000000000b0001",
+      "id": "2",
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "nonce": "0x1dcba24914e1bcad02109cf90162090c302ee731c1c111e3e219d1c46ac03a60"
+    },
+    {
+      "name": "fund-other-writ",
+      "writ": "0xffffffffffffffffffffffffffffffffffff0002",
+      "id": "1",
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "nonce": "0x6b63180b4b8abf4202d38998fdde99d8c407647872efc2f02a2fa207e0da2081"
+    }
   ]
 }

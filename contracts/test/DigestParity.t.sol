@@ -44,6 +44,50 @@ contract DigestParityTest is WritBase {
         assertEq(w.digestFor(id, Writ.Action(action), payload, deadline), expected, name);
     }
 
+    /// Writ.openAuthNonce / fundAuthNonce must equal shared/auth.ts (§5.8).
+    function test_authNonces_matchTypeScriptFixtures() public {
+        uint256 n = vm.parseJsonUint(json, ".openAuthCount");
+        assertGe(n, 4);
+        for (uint256 i; i < n; i++) {
+            string memory k = string.concat(".openAuth[", vm.toString(i), "]");
+            Writ w = _writAt(vm.parseJsonAddress(json, string.concat(k, ".writ")));
+            Writ.Terms memory t = _termsAt(string.concat(k, ".terms"));
+            assertEq(
+                w.openAuthNonce(vm.parseJsonUint(json, string.concat(k, ".id")), t),
+                vm.parseJsonBytes32(json, string.concat(k, ".nonce")),
+                vm.parseJsonString(json, string.concat(k, ".name"))
+            );
+        }
+        n = vm.parseJsonUint(json, ".fundAuthCount");
+        assertGe(n, 3);
+        for (uint256 i; i < n; i++) {
+            string memory k = string.concat(".fundAuth[", vm.toString(i), "]");
+            Writ w = _writAt(vm.parseJsonAddress(json, string.concat(k, ".writ")));
+            assertEq(
+                w.fundAuthNonce(vm.parseJsonUint(json, string.concat(k, ".id")),
+                                vm.parseJsonBytes32(json, string.concat(k, ".salt"))),
+                vm.parseJsonBytes32(json, string.concat(k, ".nonce")),
+                vm.parseJsonString(json, string.concat(k, ".name"))
+            );
+        }
+    }
+
+    function _writAt(address at) internal returns (Writ) {
+        if (at.code.length == 0) deployCodeTo("Writ.sol:Writ", at);
+        return Writ(at);
+    }
+
+    function _termsAt(string memory k) internal view returns (Writ.Terms memory t) {
+        t.beneficiary     = vm.parseJsonAddress(json, string.concat(k, ".beneficiary"));
+        t.amountPerPeriod = uint128(vm.parseJsonUint(json, string.concat(k, ".amountPerPeriod")));
+        t.periodSeconds   = uint64(vm.parseJsonUint(json, string.concat(k, ".periodSeconds")));
+        t.startAt         = uint64(vm.parseJsonUint(json, string.concat(k, ".startAt")));
+        t.endTime         = uint64(vm.parseJsonUint(json, string.concat(k, ".endTime")));
+        t.maxExecutorFee  = uint128(vm.parseJsonUint(json, string.concat(k, ".maxExecutorFee")));
+        t.pqKey           = vm.parseJsonBytes32(json, string.concat(k, ".pqKey"));
+        t.ref             = vm.parseJsonBytes32(json, string.concat(k, ".ref"));
+    }
+
     /// Reach pqNonce = n the only way the contract allows: n successful amends.
     function _advanceNonce(Writ w, uint256 id, uint256 n) internal {
         require(id == 1, "nonce > 0 fixtures must use id 1");

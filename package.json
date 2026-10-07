@@ -6,7 +6,7 @@
     "test": "node --test test/*.test.ts",
     "fixtures": "node scripts/gen-fixtures.ts",
     "test:sol": "cd contracts && forge test",
-    "test:fork": "cd contracts && forge test --fork-url arc_testnet --match-contract WritForkTest -vv",
+    "test:fork": "cd contracts && forge test --fork-url arc_testnet --match-contract ForkTest -vv",
     "pq-check": "node scripts/pq-check.ts",
     "flow": "node --env-file=.env scripts/flow.ts"
   },

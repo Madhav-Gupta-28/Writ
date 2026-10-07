@@ -2,33 +2,15 @@
 pragma solidity 0.8.30;
 
 import {Writ, IPQVerify} from "../src/Writ.sol";
-import {WritBase} from "./WritBase.sol";
+import {ArcForkBase} from "./ArcForkBase.sol";
 
-/// §11.3 against Arc testnet. Run with:
-///   forge test --fork-url arc_testnet --match-contract WritForkTest -vv
-/// Skipped unless the fork is Arc testnet (chain 5042002).
-///
-/// Why vm.rpc: Arc's precompiles are native node code. On a forge fork,
-/// 0x1800…0004 holds a placeholder byte (0x01 on testnet) that the local EVM
-/// would execute as bytecode, so calling it inside the fork cannot work. Instead
-/// each verification goes to the real testnet node as an eth_call, and the
-/// verdict is replayed into the local fork with an exact-calldata vm.mockCall.
-/// If Writ sent any other bytes, no mock would match and amend would hit the
-/// placeholder and revert, so a passing amend proves Writ sends exactly the
-/// bytes the real precompile accepted.
-///
-/// USDC is MockUSDC here too (WritBase). Arc's real USDC reads native balances
-/// through a system precompile, which a forge fork can't run either.
-contract WritForkTest is WritBase {
-    uint256 constant ARC_TESTNET = 5042002;
-
+/// §11.3 rows 1-2 against Arc testnet. Run with:
+///   forge test --fork-url arc_testnet --match-contract ForkTest -vv
+/// Skipped unless the fork is Arc testnet. See ArcForkBase for why the
+/// precompile is reached through vm.rpc.
+contract WritForkTest is ArcForkBase {
     string pq;
     Writ w;
-
-    modifier onlyArcTestnetFork() {
-        if (block.chainid != ARC_TESTNET) vm.skip(true);
-        _;
-    }
 
     function setUp() public override {
         if (block.chainid != ARC_TESTNET) return;
@@ -122,24 +104,5 @@ contract WritForkTest is WritBase {
             uint128(vm.parseJsonUint(pq, ".newMaxExecutorFee")),
             uint64(vm.parseJsonUint(pq, ".deadline"))
         );
-    }
-
-    function _ethCallParams(bytes memory data) internal pure returns (string memory) {
-        return string.concat(
-            '[{"to":"0x1800000000000000000000000000000000000004","data":"', vm.toString(data), '"},"latest"]'
-        );
-    }
-
-    /// eth_call against the real Arc testnet node.
-    function _realVerify(bytes memory data) internal returns (bool) {
-        return abi.decode(vm.rpc("eth_call", _ethCallParams(data)), (bool));
-    }
-
-    function _realCallSucceeds(bytes memory data) internal returns (bool) {
-        try vm.rpc("eth_call", _ethCallParams(data)) returns (bytes memory) {
-            return true;
-        } catch {
-            return false;
-        }
     }
 }
