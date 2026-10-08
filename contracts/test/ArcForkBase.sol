@@ -15,8 +15,20 @@ import {WritBase} from "./WritBase.sol";
 /// revert — so a passing PQ action proves Writ sent exactly the bytes the real
 /// precompile judged.
 ///
-/// USDC is MockUSDC here too (WritBase): Arc's real USDC reads native balances
-/// through a system precompile, which a forge fork can't run either.
+/// USDC is MockUSDC here too (WritBase). Measured against an anvil fork of Arc
+/// mainnet on 2026-10-08, the real USDC splits in two: plain storage reads work,
+/// but anything that goes through a Native Coin precompile reverts with empty
+/// data.
+///
+///   decimals()        fork: 6          mainnet: 6
+///   balanceOf(a)      fork: works      mainnet: works
+///   totalSupply()     fork: REVERTS    mainnet: 525,120,173.350594
+///   transfer(...)     fork: REVERTS    mainnet: true
+///   isBlacklisted(a)  fork: REVERTS    mainnet: false
+///
+/// So a fork cannot run Writ against the real token at all: execute()'s first
+/// USDC call is isBlacklisted, which already reverts. MockUSDC is not a
+/// convenience here, it is the only way these tests can exist.
 abstract contract ArcForkBase is WritBase {
     uint256 constant ARC_TESTNET = 5042002;
 

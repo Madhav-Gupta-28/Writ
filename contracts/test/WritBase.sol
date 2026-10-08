@@ -45,6 +45,7 @@ abstract contract WritBase is Test {
         // where MockUSDC keeps transferReturnsFalse, so on a fork every transfer
         // would return false until this is cleared.
         usdc.setTransferFails(false);
+        usdc.setTransferFromFails(false);
         writ = new Writ();
         vm.warp(1_800_000_000);
         _fundAndApprove(payer, 1_000_000e6, address(writ));
