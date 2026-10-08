@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { slh_dsa_sha2_128s as S } from "@noble/post-quantum/slh-dsa.js";
-import { BaseError, ContractFunctionRevertedError, encodeErrorResult, type Address } from "viem";
+import { BaseError, ContractFunctionRevertedError, bytesToHex, encodeErrorResult, type Address } from "viem";
 import { writAbi } from "../../../shared/abi/writ.ts";
 import { humanError } from "./errors";
 import { duration, formatUsdc, parseUsdc, relative } from "./format";
@@ -23,9 +23,9 @@ describe("key card file", () => {
   it("round-trips with the right password", async () => {
     const f = await encryptKeyCard(card, "correct horse battery");
     const back = await decryptKeyCard(parseKeyCardFile(JSON.stringify(f)), "correct horse battery");
-    expect(Buffer.from(back.secretKey)).toEqual(Buffer.from(card.secretKey));
-    expect(f.publicKey).toBe("0x" + Buffer.from(card.publicKey).toString("hex"));
-    expect(JSON.stringify(f)).not.toContain(Buffer.from(card.secretKey).toString("hex")); // secret is not in the clear
+    expect(bytesToHex(back.secretKey)).toBe(bytesToHex(card.secretKey));
+    expect(f.publicKey).toBe(bytesToHex(card.publicKey));
+    expect(JSON.stringify(f)).not.toContain(bytesToHex(card.secretKey).slice(2)); // secret is not in the clear
   }, 30_000);
 
   it("rejects a wrong password", async () => {
@@ -36,7 +36,7 @@ describe("key card file", () => {
   it("rejects a file whose public key was swapped", async () => {
     const f = await encryptKeyCard(card, "correct horse battery");
     const other = S.keygen(new Uint8Array(48).fill(9)).publicKey;
-    const tampered = { ...f, publicKey: ("0x" + Buffer.from(other).toString("hex")) as `0x${string}` };
+    const tampered = { ...f, publicKey: bytesToHex(other) };
     await expect(decryptKeyCard(tampered, "correct horse battery")).rejects.toThrow(/Wrong password|changed/);
   }, 30_000);
 

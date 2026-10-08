@@ -63,7 +63,7 @@ contract WritAdversarialTest is WritBase {
         vm.prank(payer);
         usdc.approve(address(other), type(uint256).max);
         vm.prank(payer);
-        uint256 id = other.open(_terms(), AMOUNT); // same id, same key, other contract
+        uint256 id = other.open(_terms(), ONE_PERIOD); // same id, same key, other contract
         uint256 mine = _openDefault();
         assertEq(id, mine);
 

@@ -47,65 +47,65 @@ contract WritAuthTest is WritBase {
         Writ.Terms memory t = _terms();
         Writ.Authorization memory a = _signAuth(payerKey, address(writ), AMOUNT, writ.openAuthNonce(2, t));
         vm.expectRevert(Writ.BadAuthorizationNonce.selector);
-        writ.openWithAuthorization(t, payer, AMOUNT, a);
+        writ.openWithAuthorization(t, payer, ONE_PERIOD, a);
     }
 
     function test_openWithAuthorization_idRace_revertsAndAuthStaysUnused() public {
         Writ.Terms memory t = _terms();
-        Writ.Authorization memory a = _openAuth(t, AMOUNT); // signed for id 1
-        _open(_terms(), AMOUNT);                              // someone else takes id 1
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD); // signed for id 1
+        _open(_terms(), ONE_PERIOD);                              // someone else takes id 1
 
         uint256 payerBefore = usdc.balanceOf(payer);
         vm.expectRevert(Writ.BadAuthorizationNonce.selector);
-        writ.openWithAuthorization(t, payer, AMOUNT, a);
+        writ.openWithAuthorization(t, payer, ONE_PERIOD, a);
         assertFalse(usdc.authorizationState(payer, a.nonce), "authorization not consumed");
         assertEq(usdc.balanceOf(payer), payerBefore);
     }
 
     function test_openWithAuthorization_attackerChangesBeneficiary() public {
         Writ.Terms memory t = _terms();
-        Writ.Authorization memory a = _openAuth(t, AMOUNT);
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD);
 
         Writ.Terms memory evil = t;
         evil.beneficiary = attacker;
         vm.prank(attacker);
         vm.expectRevert(Writ.BadAuthorizationNonce.selector);
-        writ.openWithAuthorization(evil, payer, AMOUNT, a);
+        writ.openWithAuthorization(evil, payer, ONE_PERIOD, a);
     }
 
     function test_openWithAuthorization_attackerRecomputesNonce_usdcRejectsSignature() public {
         Writ.Terms memory t = _terms();
-        Writ.Authorization memory a = _openAuth(t, AMOUNT);
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD);
 
         Writ.Terms memory evil = t;
         evil.beneficiary = attacker;
         a.nonce = writ.openAuthNonce(1, evil); // passes Writ's check; the payer never signed it
         vm.prank(attacker);
         vm.expectRevert(bytes("FiatTokenV2: invalid signature"));
-        writ.openWithAuthorization(evil, payer, AMOUNT, a);
+        writ.openWithAuthorization(evil, payer, ONE_PERIOD, a);
     }
 
     function test_openWithAuthorization_attackerChangesAmount() public {
         Writ.Terms memory t = _terms();
-        Writ.Authorization memory a = _openAuth(t, AMOUNT);
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD);
         vm.expectRevert(bytes("FiatTokenV2: invalid signature"));
         writ.openWithAuthorization(t, payer, AMOUNT * 2, a);
     }
 
     function test_openWithAuthorization_replayAfterSuccess() public {
         Writ.Terms memory t = _terms();
-        Writ.Authorization memory a = _openAuth(t, AMOUNT);
-        writ.openWithAuthorization(t, payer, AMOUNT, a);
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD);
+        writ.openWithAuthorization(t, payer, ONE_PERIOD, a);
         vm.expectRevert(Writ.BadAuthorizationNonce.selector); // nextId moved on
-        writ.openWithAuthorization(t, payer, AMOUNT, a);
+        writ.openWithAuthorization(t, payer, ONE_PERIOD, a);
     }
 
     function test_openWithAuthorization_stillValidatesTerms() public {
         Writ.Terms memory t = _terms();
         t.pqKey = bytes32(0);
-        Writ.Authorization memory a = _openAuth(t, AMOUNT);
+        Writ.Authorization memory a = _openAuth(t, ONE_PERIOD);
         vm.expectRevert(Writ.InvalidPqKey.selector);
-        writ.openWithAuthorization(t, payer, AMOUNT, a);
+        writ.openWithAuthorization(t, payer, ONE_PERIOD, a);
     }
 
     function test_openAuthNonce_bindsTheContract() public {

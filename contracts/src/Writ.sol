@@ -233,7 +233,12 @@ contract Writ {
             revert InvalidEndTime();
         }
         _checkExecutorFee(t.maxExecutorFee, t.amountPerPeriod);
-        if (initialFunding < t.amountPerPeriod) revert InsufficientInitialFunding();
+        // One period must be payable *with* its executor fee, or the first
+        // execute would pay the beneficiary and leave the executor nothing.
+        // Matches the runway formula in §6.3.
+        if (uint256(initialFunding) < uint256(t.amountPerPeriod) + t.maxExecutorFee) {
+            revert InsufficientInitialFunding();
+        }
 
         id = nextId++;
         Obligation storage o = obligations[id];
@@ -286,7 +291,11 @@ contract Writ {
         }
 
         uint128 amt = o.amountPerPeriod;
-        if (o.balance < amt) revert Underfunded();
+        // Reserve the executor fee alongside the payment. Without this the last
+        // period of every obligation pays the beneficiary in full and leaves the
+        // executor nothing, so a rational executor simulates, sees a zero fee
+        // and never submits it. §5.5, §6.3.
+        if (uint256(o.balance) < uint256(amt) + o.maxExecutorFee) revert Underfunded();
 
         // effects before interaction
         o.balance      -= amt;

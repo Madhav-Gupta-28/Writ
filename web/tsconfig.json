@@ -14,5 +14,8 @@
     "noUnusedParameters": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts", "../shared/digest.ts", "../shared/auth.ts", "../shared/abi/writ.ts"]
+  "include": ["src", "vite.config.ts", "../shared/digest.ts", "../shared/auth.ts", "../shared/abi/writ.ts"],
+  // Tests are not app code and must not gate the production build. They are
+  // typechecked separately by tsconfig.test.json (`npm run typecheck:test`).
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
 }

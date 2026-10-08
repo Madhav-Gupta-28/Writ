@@ -94,7 +94,7 @@ contract DigestParityTest is WritBase {
         vm.prank(payer);
         usdc.approve(address(w), type(uint256).max);
         vm.prank(payer);
-        w.open(_terms(), AMOUNT);
+        w.open(_terms(), ONE_PERIOD);
         _mockPq(true);
         for (uint256 j; j < n; j++) {
             w.amend(id, beneficiary, AMOUNT, PERIOD, uint64(block.timestamp) + 11 * PERIOD, FEE_CAP,

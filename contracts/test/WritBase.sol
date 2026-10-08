@@ -17,6 +17,9 @@ abstract contract WritBase is Test {
 
     uint128 constant AMOUNT = 1_000e6;     // 1,000 USDC per period
     uint128 constant FEE_CAP = 1e6;        // 1 USDC; well above the floor-price meter
+    /// The smallest funding that makes one period payable: the payment plus its
+    /// reserved executor fee. Writ enforces this at open and at execute (§6.3).
+    uint128 constant ONE_PERIOD = AMOUNT + FEE_CAP;
     uint64  constant PERIOD = 30 days;
     bytes32 constant PQ_KEY = keccak256("test pq key");
     bytes32 constant REF    = keccak256("INV-2026-001");
@@ -28,6 +31,7 @@ abstract contract WritBase is Test {
     uint256 payerKey    = uint256(keccak256(abi.encodePacked("payer"))); // forge-std makeAddr derivation
     address beneficiary = makeAddr("beneficiary");
     address executor    = makeAddr("executor");
+    address executor2   = makeAddr("executor2");
     address stranger    = makeAddr("stranger");
 
     function setUp() public virtual {
@@ -37,6 +41,10 @@ abstract contract WritBase is Test {
         // real USDC's storage, which overlaps MockUSDC's hook slots (the token
         // name ends up as hookData). Clear them so transfer doesn't call junk.
         usdc.setHook(address(0), "");
+        // Same hazard, one slot further on: the real USDC holds 6 (its decimals)
+        // where MockUSDC keeps transferReturnsFalse, so on a fork every transfer
+        // would return false until this is cleared.
+        usdc.setTransferFails(false);
         writ = new Writ();
         vm.warp(1_800_000_000);
         _fundAndApprove(payer, 1_000_000e6, address(writ));

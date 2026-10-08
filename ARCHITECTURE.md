@@ -634,7 +634,7 @@ A compromise of any single one of these is survivable. §9 works through each.
                                               pay executor
                                               return          (no gas burn)
                                    └─ false ┐
-6.  balance >= amountPerPeriod?              else revert, cheap
+6.  balance >= amount + maxExecutorFee?      else revert, cheap  (fee is reserved)
 7.  balance -= amount; nextDueAt += period   (effects before interaction)
 8.  USDC.transfer(beneficiary, amount)
 9.  emit Paid(id, beneficiary, amount, periodIndex, ref)
@@ -1080,7 +1080,7 @@ Validation, in order:
 | `startAt >= block.timestamp` | `StartInPast` | a backdated start would make every missed period payable at once. Clients should pick a start a little in the future, because the transaction may be included a few seconds after it is signed |
 | `endTime > startAt` and `endTime >= startAt + periodSeconds` | `InvalidEndTime` | at least one period must be payable |
 | `maxExecutorFee > 0 && maxExecutorFee < amountPerPeriod` | `InvalidExecutorFee` | the fee can never exceed the payment |
-| `initialFunding >= amountPerPeriod` | `InsufficientInitialFunding` | an obligation that cannot pay its first period is not an obligation |
+| `initialFunding >= amountPerPeriod + maxExecutorFee` | `InsufficientInitialFunding` | one period must be payable *with* its executor fee, or the first `execute` pays the beneficiary and leaves the executor nothing |
 
 #### Open and fund in one transaction
 
