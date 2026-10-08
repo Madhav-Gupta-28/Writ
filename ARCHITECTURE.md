@@ -1616,6 +1616,22 @@ this indirection. Not yet tried.
    **Implemented** for a 31-byte key and a 7,855-byte signature.
 3. **A real `USDC.transfer` from a contract succeeds**, including to a contract
    beneficiary (§3.7 control).
+
+   **Measured 2026-10-08 against an anvil fork of Arc mainnet:** the real USDC
+   splits in two on a fork. Plain storage reads work; anything routed through a
+   Native Coin precompile reverts with empty data.
+
+   | Call | On a fork | On mainnet |
+   | :- | :- | :- |
+   | `decimals()` | 6 | 6 |
+   | `balanceOf(a)` | works | works |
+   | `totalSupply()` | **reverts** | 525,120,173.350594 |
+   | `transfer(...)` | **reverts** | `true` |
+   | `isBlacklisted(a)` | **reverts** | `false` |
+
+   `execute()`'s first USDC call is `isBlacklisted`, so a fork cannot run Writ
+   against the real token at all. MockUSDC is not a convenience in these tests,
+   it is the only way they can exist.
 4. **`isBlacklisted` answers** for a known-good address.
 5. **Memo is unreachable from a contract.** Assert the revert string
    `"sender spoofing requires tx.origin as sender"`. If a future Arc release

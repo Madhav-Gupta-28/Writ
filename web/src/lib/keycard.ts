@@ -14,6 +14,15 @@ import { bytesToHex, hexToBytes, type Hex } from "viem";
 export const PBKDF2_ITERATIONS = 600_000;
 export const MIN_PASSWORD = 10;
 
+// A key card file carries its own iteration count so an older card still opens.
+// That number drives a PBKDF2 loop, so an imported file must not be able to
+// choose it freely: a huge value hangs the tab, and a tiny one would silently
+// weaken a card the user believes is strong. Bound both ends.
+export const MIN_ITERATIONS = 100_000;
+export const MAX_ITERATIONS = 2_000_000;
+
+const HEX = /^0x[0-9a-fA-F]*$/;
+
 export interface KeyCardFile {
   format: "writ-keycard";
   version: 1;
@@ -85,6 +94,18 @@ export function parseKeyCardFile(text: string): KeyCardFile {
   if (j?.format !== "writ-keycard" || j.version !== 1) throw new KeyCardError("That file isn't a Writ key card.");
   if (!/^0x[0-9a-fA-F]{64}$/.test(j.publicKey ?? "")) throw new KeyCardError("This key card file is damaged (bad public key).");
   if (j.kdf?.name !== "PBKDF2" || j.cipher?.name !== "AES-GCM") throw new KeyCardError("This key card uses an unsupported format.");
+  if (j.kdf.hash !== "SHA-256") throw new KeyCardError("This key card uses an unsupported format.");
+
+  const iter = j.kdf.iterations;
+  if (!Number.isSafeInteger(iter) || iter < MIN_ITERATIONS || iter > MAX_ITERATIONS) {
+    throw new KeyCardError("This key card file is damaged (bad key-derivation settings).");
+  }
+  // hexToBytes throws a raw viem error on malformed input; check here so the
+  // user sees a key-card message instead of a stack trace.
+  if (!HEX.test(j.kdf.salt ?? "") || !HEX.test(j.cipher.iv ?? "") || !HEX.test(j.ciphertext ?? "")) {
+    throw new KeyCardError("This key card file is damaged (bad encoding).");
+  }
+  if (j.ciphertext.length < 2 + 2 * 64) throw new KeyCardError("This key card file is damaged (truncated).");
   return j;
 }
 

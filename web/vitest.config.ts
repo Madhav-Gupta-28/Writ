@@ -1,7 +1,7 @@
 // Test config, kept out of vite.config.ts so the production build does not
 // depend on vitest's types at all.
 import { defineConfig, mergeConfig } from "vitest/config";
-import viteConfig from "./vite.config";
+import viteConfig from "./vite.config.ts";
 
 export default mergeConfig(
   viteConfig,
