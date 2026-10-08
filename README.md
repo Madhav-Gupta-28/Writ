@@ -114,6 +114,35 @@ it. Projects using the same precompile: `arc-guard` (two-key USDC box, whose
 `upKEEP`. [§16 of the spec](ARCHITECTURE.md) sets out where Writ diverges from
 each.
 
+## Running the tests
+
+```sh
+npm ci && npm --prefix web ci
+npm test                  # TypeScript: digest and EIP-3009 nonce parity with the contract
+npm run test:sol          # Solidity: unit, adversarial and invariant suites
+npm run test:fork         # Solidity against LIVE Arc testnet — see the warning below
+npm --prefix web test     # web: lib + page render tests
+npm --prefix web run build
+```
+
+> **The fork tests do not run under a plain `forge test`.** They are gated on
+> `block.chainid == 5042002` and **skip silently** without `--fork-url`, so a
+> bare run prints `0 failed` while the tests that matter most — the ones that put
+> a real signature in front of Arc's real post-quantum precompile — never
+> executed. Always run `npm run test:fork` before believing the suite is green.
+>
+> They work this way because Arc's precompiles are native node code: on a forge
+> fork `0x1800…0004` holds a placeholder byte, so the verification is sent to the
+> real node as an `eth_call` and the verdict is replayed into the fork with an
+> exact-calldata `vm.mockCall`. If Writ sent any other bytes no mock would match,
+> the call would hit the placeholder and revert — so a passing PQ action proves
+> Writ sent exactly the bytes the real precompile judged.
+
+The keeper is optional. `execute` is permissionless and reimburses the caller's
+gas plus a capped tip, so a stranger is paid to run it — but Arc has no searcher
+ecosystem yet, so `npm run keeper -- --mainnet --id 2` (or `--once` under cron)
+keeps a demo order from falling behind.
+
 ## The specification
 
 **[ARCHITECTURE.md](ARCHITECTURE.md)** is the complete build document — 1,550

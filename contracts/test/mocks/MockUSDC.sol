@@ -22,6 +22,11 @@ contract MockUSDC {
     address public hookTarget;
     bytes public hookData;
 
+    /// Arc's USDC always reverts rather than returning false, but Writ still
+    /// checks the boolean (§5.4). This makes `transfer` return false without
+    /// reverting, so the TransferFailed path is reachable in tests.
+    bool public transferReturnsFalse;
+
     function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
     }
@@ -35,12 +40,17 @@ contract MockUSDC {
         hookData = data;
     }
 
+    function setTransferFails(bool v) external {
+        transferReturnsFalse = v;
+    }
+
     function approve(address spender, uint256 amount) external returns (bool) {
         allowance[msg.sender][spender] = amount;
         return true;
     }
 
     function transfer(address to, uint256 amount) external returns (bool) {
+        if (transferReturnsFalse) return false;
         _move(msg.sender, to, amount);
         if (hookTarget != address(0)) {
             (bool ok, bytes memory ret) = hookTarget.call(hookData);

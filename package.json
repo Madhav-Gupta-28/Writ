@@ -14,7 +14,8 @@
     "auth-check": "node --env-file=.env scripts/auth-check.ts",
     "open-order": "node --env-file=.env scripts/open-order.ts",
     "abi": "node scripts/export-abi.ts",
-    "web": "npm --prefix web run dev"
+    "web": "npm --prefix web run dev",
+    "keeper": "node --env-file=.env scripts/keeper.ts"
   },
   "dependencies": {
     "@noble/post-quantum": "0.7.1",

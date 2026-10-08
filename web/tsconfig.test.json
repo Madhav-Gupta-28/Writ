@@ -1,0 +1,11 @@
+// Typechecks the test files, which tsconfig.json deliberately excludes so they
+// cannot break the production build. Same strictness as the app, plus the
+// vitest globals the tests import explicitly.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**/*"],
+  "exclude": []
+}

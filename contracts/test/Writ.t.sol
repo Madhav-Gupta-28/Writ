@@ -97,7 +97,7 @@ contract WritTest is WritBase {
     function test_open_acceptsStartNow() public {
         Writ.Terms memory t = _terms();
         assertEq(t.startAt, block.timestamp);
-        _open(t, AMOUNT);
+        _open(t, ONE_PERIOD);
     }
 
     function test_open_rejectsEndTimeNotAfterStart() public {
@@ -115,7 +115,7 @@ contract WritTest is WritBase {
     function test_open_acceptsEndTimeExactlyOnePeriod() public {
         Writ.Terms memory t = _terms();
         t.endTime = t.startAt + PERIOD;
-        _open(t, AMOUNT);
+        _open(t, ONE_PERIOD);
     }
 
     function test_open_rejectsZeroExecutorFee() public {
@@ -130,8 +130,16 @@ contract WritTest is WritBase {
         _expectOpenRevert(t, AMOUNT, Writ.InvalidExecutorFee.selector);
     }
 
-    function test_open_rejectsFundingBelowOnePeriod() public {
-        _expectOpenRevert(_terms(), AMOUNT - 1, Writ.InsufficientInitialFunding.selector);
+    /// The minimum is the payment PLUS its reserved executor fee, so the first
+    /// period is always executable by a stranger who gets paid for it (§6.3).
+    function test_open_rejectsFundingBelowOnePeriodPlusFee() public {
+        _expectOpenRevert(_terms(), ONE_PERIOD - 1, Writ.InsufficientInitialFunding.selector);
+    }
+
+    function test_open_acceptsFundingOfExactlyOnePeriodPlusFee() public {
+        uint256 id = _open(_terms(), ONE_PERIOD);
+        assertEq(_balance(id), ONE_PERIOD);
+        _checkBooks();
     }
 
     function _expectOpenRevert(Writ.Terms memory t, uint128 funding, bytes4 err) internal {
@@ -238,14 +246,15 @@ contract WritTest is WritBase {
     }
 
     function test_execute_underfundedReverts_thenFundResumes() public {
-        uint256 id = _open(_terms(), AMOUNT); // one period, no fee headroom
+        uint256 id = _open(_terms(), ONE_PERIOD); // exactly one period + its fee
         writ.execute(id);
         vm.warp(block.timestamp + PERIOD);
         vm.expectRevert(Writ.Underfunded.selector);
         writ.execute(id);
 
+        // A top-up must cover the payment AND its reserved fee (§6.3).
         vm.prank(payer);
-        writ.fund(id, AMOUNT);
+        writ.fund(id, ONE_PERIOD);
         writ.execute(id);
         assertEq(usdc.balanceOf(beneficiary), 2 * AMOUNT);
         _checkBooks();
@@ -309,13 +318,44 @@ contract WritTest is WritBase {
         _checkBooks();
     }
 
-    function test_executorFee_neverExceedsRemainingBalance() public {
-        uint256 id = _open(_terms(), AMOUNT); // nothing left after the payment
+    /// The fee is reserved alongside the payment, so an executor is paid even on
+    /// the very last payable period. Before the reservation (§6.3) this case paid
+    /// the beneficiary in full and left the executor nothing, so nobody would
+    /// have submitted it.
+    function test_executorFee_isPaidEvenOnTheLastPayablePeriod() public {
+        uint256 id = _open(_terms(), ONE_PERIOD); // exactly one period + its fee
         vm.txGasPrice(20 gwei);
+        // Topics only: the fee is gas-dependent, so the data field is not checked.
+        vm.expectEmit(true, true, false, false, address(writ));
+        emit Writ.ExecutorPaid(id, executor, 0);
         vm.prank(executor);
         writ.execute(id);
-        assertEq(usdc.balanceOf(executor), 0);
-        assertEq(_balance(id), 0);
+
+        uint256 fee = usdc.balanceOf(executor);
+        assertGt(fee, 0, "executor must be paid on the last payable period");
+        assertLe(fee, FEE_CAP);
+        assertEq(usdc.balanceOf(beneficiary), AMOUNT, "beneficiary still paid in full");
+        assertEq(_balance(id), FEE_CAP - fee, "only the unused fee reserve is left");
+        _checkBooks();
+    }
+
+    /// _payExecutor still caps the fee at the remaining balance. After the
+    /// reservation that can only bite on the quarantine path, where no payment
+    /// happened to top the reserve up.
+    function test_executorFee_cappedAtRemainingBalanceOnQuarantine() public {
+        uint256 id = _open(_terms(), ONE_PERIOD);
+        vm.txGasPrice(20 gwei);
+        writ.execute(id); // drains all but the unused fee reserve
+
+        uint128 left = _balance(id);
+        vm.warp(block.timestamp + PERIOD);
+        usdc.setBlacklisted(beneficiary, true);
+        vm.prank(executor2);
+        writ.execute(id); // quarantines; fee is whatever is left
+
+        assertEq(uint8(_state(id)), uint8(Writ.State.Quarantined));
+        assertLe(usdc.balanceOf(executor2), left, "fee cannot exceed the remaining balance");
+        assertEq(_balance(id), left - uint128(usdc.balanceOf(executor2)));
         _checkBooks();
     }
 

@@ -3,3 +3,11 @@ contracts/out/
 contracts/cache/
 .env
 .keycards/
+
+# Internal development notes — not part of the public submission.
+CLAUDE.md
+
+# Test and build output.
+web/dist/
+web/coverage/
+contracts/lcov.info

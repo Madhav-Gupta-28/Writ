@@ -7,10 +7,11 @@
 // Also loads mainnet order #2 read-only. Screenshots go to e2e/out/.
 //
 // Usage (from web/): npm run build && node --env-file=../.env e2e/flow.e2e.ts
-//   needs Google Chrome installed; set CHROME_PATH to override.
+//   needs Google Chrome installed (found automatically on macOS/Windows/Linux;
+//   set CHROME_PATH to override).
 
 import { spawn } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { chromium, type Page } from "playwright-core";
 import { createPublicClient, createWalletClient, hexToBigInt, http, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -19,7 +20,33 @@ import { arcTestnet } from "../src/config.ts";
 const OUT = new URL("./out/", import.meta.url);
 const PORT = 4179;
 const BASE = `http://localhost:${PORT}`;
-const CHROME = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
+// Chrome lives somewhere different on each OS. CHROME_PATH overrides; otherwise
+// take the first of the usual locations that actually exists.
+const CHROME_CANDIDATES: Record<string, string[]> = {
+  darwin: [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  ],
+  win32: [
+    "C:/Program Files/Google/Chrome/Application/chrome.exe",
+    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+  ],
+  linux: ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"],
+};
+
+function findChrome(): string {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  const candidates = CHROME_CANDIDATES[process.platform] ?? [];
+  const found = candidates.find((p) => existsSync(p));
+  if (found) return found;
+  throw new Error(
+    `Could not find Chrome on ${process.platform}. Looked in:\n` +
+      candidates.map((p) => `  ${p}`).join("\n") +
+      `\nInstall Google Chrome, or set CHROME_PATH to the executable.`,
+  );
+}
+
+const CHROME = findChrome();
 const PASSWORD = "e2e test password 123";
 
 const pk = process.env.PRIVATE_KEY?.trim();

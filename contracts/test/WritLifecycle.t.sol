@@ -23,6 +23,41 @@ contract WritLifecycleTest is WritBase {
         return _pqSign(writ, _pqKeyOf(id), id, a, payload, _dl());
     }
 
+    // ------------------------------------------------------------------
+    // TransferFailed. Arc's USDC reverts rather than returning false, but Writ
+    // checks the boolean on every transfer and must surface a typed error if a
+    // token ever returns false. MockUSDC.setTransferFails makes that reachable.
+    // These three tests cover all three transfer sites: the beneficiary payment,
+    // the executor fee, and the payer refund.
+    // ------------------------------------------------------------------
+
+    function test_transferFailed_beneficiaryPayment() public {
+        uint256 id = _openDefault();
+        usdc.setTransferFails(true);
+        vm.prank(executor);
+        vm.expectRevert(Writ.TransferFailed.selector);
+        writ.execute(id);
+    }
+
+    function test_transferFailed_executorFeeOnQuarantine() public {
+        uint256 id = _openDefault();
+        usdc.setBlacklisted(beneficiary, true);
+        // The quarantine path makes no beneficiary payment, so the only transfer
+        // is the executor's fee.
+        usdc.setTransferFails(true);
+        vm.prank(executor);
+        vm.expectRevert(Writ.TransferFailed.selector);
+        writ.execute(id);
+    }
+
+    function test_transferFailed_payerRefund() public {
+        uint256 id = _openDefault();
+        bytes memory sig = _sign(id, Writ.Action.Cancel, "");
+        usdc.setTransferFails(true);
+        vm.expectRevert(Writ.TransferFailed.selector);
+        writ.cancelByPq(id, _dl(), sig);
+    }
+
     function _quarantine() internal returns (uint256 id) {
         id = _openDefault();
         usdc.setBlacklisted(beneficiary, true);
@@ -66,7 +101,7 @@ contract WritLifecycleTest is WritBase {
     }
 
     function test_quarantine_beatsUnderfunded_noRevert() public {
-        uint256 id = _open(_terms(), AMOUNT); // empty after the first payment
+        uint256 id = _open(_terms(), ONE_PERIOD); // only the unused fee reserve survives payment 1
         writ.execute(id);
         vm.warp(block.timestamp + PERIOD);
         usdc.setBlacklisted(beneficiary, true);
