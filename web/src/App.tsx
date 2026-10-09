@@ -4,6 +4,7 @@ import { ScrollText, Search, TriangleAlert } from "lucide-react";
 import { NETWORKS, type NetworkName } from "./config";
 import { useNetwork } from "./hooks";
 import { Home } from "./pages/Home";
+import { How } from "./pages/How";
 import { OpenOrder } from "./pages/Open";
 import { OrderView } from "./pages/OrderView";
 import { Addr, ConnectButton, NetLink } from "./ui";
@@ -42,6 +43,7 @@ export function App() {
         <div className="container topbar-inner">
           <NetLink to="/" className="brand"><span className="brand-mark"><ScrollText size={18} /></span>Writ</NetLink>
           <nav className="nav">
+            <NetLink to="/how">How it works</NetLink>
             <NetLink to="/open">New order</NetLink>
             <FindOrder />
           </nav>
@@ -58,6 +60,7 @@ export function App() {
         <div className="container">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/how" element={<How />} />
             <Route path="/open" element={<OpenOrder />} />
             <Route path="/order/:id" element={<OrderView />} />
             <Route path="/order/:id/manage" element={<OrderView initialTab="keycard" />} />

@@ -243,6 +243,36 @@ describe("TopUp", () => {
   });
 });
 
+describe("How", () => {
+  it("runs three numbered chapters, each with a figure and three checks", async () => {
+    const { How } = await import("./How");
+    renderPage(<How />, { route: "/how?net=testnet" });
+    const body = document.body.textContent ?? "";
+    for (const n of ["One", "Two", "Three"]) expect(body).toContain(n);
+    expect(body).toMatch(/it pays itself/i);
+    expect(body).toMatch(/only the key card can change it/i);
+    expect(body).toMatch(/frozen recipient loses nothing/i);
+    // three figures, three check-rows of three links each
+    expect(document.querySelectorAll("svg[role='img']").length).toBe(3);
+    expect(document.querySelectorAll(".checks a").length).toBe(9);
+  });
+
+  it("gives every figure an aria-label, since they carry the argument", async () => {
+    const { How } = await import("./How");
+    renderPage(<How />, { route: "/how?net=testnet" });
+    for (const svg of document.querySelectorAll("svg[role='img']")) {
+      expect((svg.getAttribute("aria-label") ?? "").length).toBeGreaterThan(40);
+    }
+  });
+
+  it("closes on the limits and a route into the live order", async () => {
+    const { How } = await import("./How");
+    renderPage(<How />, { route: "/how?net=testnet" });
+    expect(document.body.textContent).toMatch(/four things it does not have/i);
+    expect(document.body.textContent).toMatch(/hijack the live order/i);
+  });
+});
+
 describe("App shell", () => {
   it("warns on mainnet and not on testnet", async () => {
     const { App } = await import("../App");
