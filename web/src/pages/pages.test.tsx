@@ -102,6 +102,29 @@ describe("OrderView", () => {
     expect(document.body.textContent).toMatch(/Quarantined|frozen|blocked/i);
   });
 
+  it("warns the beneficiary to collect before the reclaim window opens", async () => {
+    const { OrderView } = await import("./OrderView");
+    renderPage(<Routes><Route path="/order/:id" element={<OrderView />} /></Routes>, { route: "/order/2?net=testnet" });
+    // Audit finding F1: reclaim does not settle due-but-uncollected periods.
+    expect(document.body.textContent).toMatch(/collect before/i);
+    expect(document.body.textContent).toMatch(/came due and nobody collected/i);
+  });
+
+  it("treats an order holding less than payment + fee as underfunded", async () => {
+    // execute() reserves the fee, so balance in [amount, amount+fee) is NOT
+    // payable. Offering a Pay button here would revert Underfunded.
+    orderData = {
+      ...orderData,
+      order: makeOrder({ balance: 12_000n, nextDueAt: NOW - 10n }), // amount 10_000 + cap 5_000 = 15_000
+      now: NOW,
+    };
+    const { OrderView } = await import("./OrderView");
+    renderPage(<Routes><Route path="/order/:id" element={<OrderView />} /></Routes>, { route: "/order/2?net=testnet" });
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/It needs 0\.015/, );        // 15_000 units, not 10_000
+    expect(body).toMatch(/for whoever presses Pay/i);
+  });
+
   it("opens straight onto the key-card tab when asked", async () => {
     const { OrderView } = await import("./OrderView");
     renderPage(<Routes><Route path="/order/:id/manage" element={<OrderView initialTab="keycard" />} /></Routes>, { route: "/order/2/manage?net=testnet" });

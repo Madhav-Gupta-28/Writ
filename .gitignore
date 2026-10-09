@@ -10,3 +10,4 @@ contracts/cache/
 web/dist/
 web/coverage/
 contracts/lcov.info
+.vercel
