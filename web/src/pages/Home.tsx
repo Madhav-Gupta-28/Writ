@@ -71,6 +71,20 @@ export function Home() {
         <RolesDiagram />
       </section>
 
+      <section className="statband">
+        {[
+          ["433,953", "gas to change an order"],
+          ["$0.0022", "to make one payment"],
+          ["197", "tests, 7 against live Arc"],
+          ["0", "servers"],
+        ].map(([v, k]) => (
+          <div key={k} className="stat">
+            <div className="v num">{v}</div>
+            <div className="eyebrow">{k}</div>
+          </div>
+        ))}
+      </section>
+
       <section>
         <div className="section-head">
           <div className="eyebrow">How it works</div>
@@ -91,7 +105,7 @@ export function Home() {
       <section className="card hacker">
         <div>
           <div className="eyebrow">The hacker test</div>
-          <h2 style={{ marginTop: 6, fontSize: "1.6rem" }}>What happens if someone steals your wallet?</h2>
+          <h2 style={{ marginTop: 6 }}>What happens if someone steals your wallet?</h2>
           <p className="text-2 readable" style={{ marginTop: 12 }}>
             With most payment tools, a stolen wallet means stolen payments. With Writ, your wallet can add money but it can never
             change who gets paid. That takes your key card, which was never on the hacked device.
@@ -104,7 +118,7 @@ export function Home() {
         </div>
         <div className="attack">
           <div className="attack-row bad"><span className="ico"><Skull size={18} /></span><div><strong>Hacker has your wallet</strong><div className="muted">and tries: "send all future payments to me"</div></div></div>
-          <div className="attack-row blocked"><span className="ico"><ShieldX size={18} /></span><div><strong>Blocked</strong><div className="muted" style={{ color: "#ffc2c8" }}>Changing the recipient needs the key card. The wallet alone is refused.</div></div></div>
+          <div className="attack-row blocked"><span className="ico"><ShieldX size={18} /></span><div><strong>Blocked</strong><div className="muted">Changing the recipient needs the key card. The wallet alone is refused.</div></div></div>
           <div className="attack-row safe"><span className="ico"><BadgeCheck size={18} /></span><div><strong>Payments keep going to the right person</strong><div className="muted" style={{ color: "var(--accent)" }}>Nothing to undo, nothing lost.</div></div></div>
         </div>
       </section>
@@ -119,6 +133,30 @@ export function Home() {
           <Link to={`/order/${live}?net=mainnet`} className="btn btn-primary btn-lg">Open order #{live.toString()} <ArrowRight size={18} /></Link>
         </section>
       )}
+
+      <section className="haves">
+        <div className="section-head center">
+          <h2>Four things it does not have.</h2>
+        </div>
+        <div className="cols-4">
+          {[
+            ["No admin", "nobody can pause it"],
+            ["No upgrade path", "the code cannot change"],
+            ["No custody", "we never hold your money"],
+            ["No server", "delete us and it still pays"],
+          ].map(([t, d]) => (
+            <div key={t} className="have">
+              <div className="eyebrow">{t}</div>
+              <div className="text-2">{d}</div>
+            </div>
+          ))}
+        </div>
+        <p className="muted center readable" style={{ margin: "22px auto 0" }}>
+          And one it does have: 30 days after the end date the funding wallet can take back
+          whatever is left, including payments nobody collected. Anyone can press Pay, so
+          collecting on time is the answer — but it is a real limit, so it is written here.
+        </p>
+      </section>
 
       <details className="tech more">
         <summary><Lock size={16} /> How it works: the technical version <ChevronDown size={16} /></summary>
