@@ -11,3 +11,4 @@ CLAUDE.md
 web/dist/
 web/coverage/
 contracts/lcov.info
+.vercel

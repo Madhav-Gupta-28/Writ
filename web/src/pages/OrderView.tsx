@@ -10,7 +10,7 @@ import { useAction, useClient, useNetwork, useOrder, useParamId } from "../hooks
 import { humanError } from "../lib/errors";
 import { formatDate, formatDay, formatUsdc, intervalLabel, relative, short, usdc } from "../lib/format";
 import { simulateHijack, type Attempt } from "../lib/hijack";
-import { estimateReward, paymentsLeft, runway, type Order } from "../lib/order";
+import { estimateReward, paymentsLeft, reclaimOpensAt, runway, type Order } from "../lib/order";
 import { events, sendWrit } from "../lib/write";
 import { Addr, Note, Skel, StateBadge, StatusLine, Tabs, WalletGate } from "../ui";
 import { KeyCardPanel } from "./KeyCardPanel";
@@ -90,6 +90,21 @@ function OrderHero({ net, order, now }: { net: Network; order: Order; now: bigin
       {live && order.cancelReadyAt > 0n && (
         <div style={{ marginTop: 16 }}><Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it becomes final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note></div>
       )}
+      {/* Writ does not settle unpaid periods before a reclaim: 30 days after the
+          end date the funding wallet can take back whatever is still in the
+          order, including money for payments that came due and were never
+          collected. Anyone can press Pay, so this is avoidable - but only if
+          someone knows about it. Stated plainly rather than left in the spec. */}
+      {live && order.periodsPaid < total && (
+        <div style={{ marginTop: 16 }}>
+          <Note icon={Clock} kind="warn">
+            Collect before {formatDate(reclaimOpensAt(order))}. From then on the funding
+            wallet can take back anything left in this order, including payments that
+            came due and nobody collected. Pressing Pay whenever a payment is due keeps
+            that from mattering, and anyone can do it.
+          </Note>
+        </div>
+      )}
     </section>
   );
 }
@@ -98,7 +113,11 @@ function PayCard({ net, order, now, gasPrice, refetch }: { net: Network; order: 
   const client = useClient(net);
   const action = useAction();
   const due = order.state === "Active" && now >= order.nextDueAt;
-  const underfunded = order.balance < order.amountPerPeriod;
+  // execute() reserves the executor fee alongside the payment (§6.3), so an
+  // order holding between amount and amount+fee is NOT payable. Checking only
+  // the amount would offer a Pay button that reverts Underfunded.
+  const needed = order.amountPerPeriod + order.maxExecutorFee;
+  const underfunded = order.balance < needed;
   const reward = estimateReward(order, gasPrice);
 
   const pay = () =>
@@ -122,7 +141,7 @@ function PayCard({ net, order, now, gasPrice, refetch }: { net: Network; order: 
           <div className={`countdown ${due ? "due" : ""}`} aria-live="off">{due ? "Due now" : countdown(order.nextDueAt - now)}</div>
           <div className="countdown-sub">{due ? `Was due ${formatDate(order.nextDueAt)}` : formatDate(order.nextDueAt)}</div>
           {due && underfunded ? (
-            <Note icon={Wallet} kind="warn">It needs {usdc(order.amountPerPeriod)} and holds {usdc(order.balance)}. Add money below and anyone can pay it.</Note>
+            <Note icon={Wallet} kind="warn">It needs {usdc(needed)} ({usdc(order.amountPerPeriod)} plus up to {usdc(order.maxExecutorFee)} for whoever presses Pay) and holds {usdc(order.balance)}. Add money below and anyone can pay it.</Note>
           ) : !due ? (
             <button className="btn btn-primary btn-xl" disabled><HandCoins size={20} />Pay now</button>
           ) : (

@@ -1,3 +1,4 @@
 e2e/out/
 dist/
 *.tsbuildinfo
+.vercel
