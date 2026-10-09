@@ -1,77 +1,80 @@
 /* Writ: dark, one accent (mint), big numbers, lots of air. */
 :root {
   /*
-    Writ is a written instrument: an order that outlives the people who signed
-    it. So the ground is paper rather than a dashboard — cool and institutional,
-    where Rialto's bond paperwork is warm and old, because Arc settles in
-    dollars and USDC is a cold asset.
+    The house rule in Tally and Nocturne is "take the chain's own hue and hold
+    it back". That rule works when the chain has a hue worth taking — Hedera's
+    green, Hedera's ultraviolet. Arc's is Circle blue, which is the most common
+    colour in fintech, and following the rule here produced a page that looked
+    like every other payments template. So this follows Rialto instead, which
+    ignored the chain entirely and took its palette from its subject.
 
-    State is carried by weight and fill rather than by hue. A panel, a rule and
-    a caption are the same pigment at different strengths. There are exactly
+    The subject is a writ: an instrument of authority that outlives the people
+    who signed it, and whose whole job is to refuse. So the page is an engraved
+    plate. Warm printing-ink ground — warm, where Nocturne's night is cool —
+    and paper-coloured type, the same paper Rialto prints on, inverted.
+
+    State is carried by weight and fill rather than by hue. There are exactly
     two exceptions and both are earned:
 
-      --accent  USDC's own blue, held back from its brand value so it stays
-                legible on paper. Spent only on what is alive: a live order, a
-                payment that is due, the one action on the page.
+      --accent  Cinnabar, the colour of a seal pressed into wax and of the
+                stamp on a legal instrument. Spent only on what is alive: a
+                live order, a payment that is due, the one action on a page.
 
-      --ice     A warm clay, spent only on a recipient Circle has frozen — the
-                single condition a reader must not miss. Warm because nothing
-                else here is, and held at the accent's lightness so it reads as
-                a sibling rather than an alarm.
+      --ice     Frozen by the issuer. Cool because nothing else here is, and
+                held at the accent's lightness so it reads as a sibling rather
+                than an alarm. Literally the colour of cold.
 
-    Refusal is deliberately not a colour. When the chain turns a thief away
-    that is the product working, so a blocked attempt is solid ink: final and
-    authoritative. --danger is kept for the one thing that is genuinely wrong,
-    a transaction that failed, and --warn resolves to ink so advisory notes
-    cannot quietly become a third hue.
+    A refusal is not a colour. On this ground the authoritative mark is paper,
+    so a blocked attempt is stamped in solid paper over ink — final, not an
+    error. --danger resolves to the seal because a failed transaction and a
+    refused one are the same pigment; the words distinguish them. --warn
+    resolves to paper at strength so an advisory note cannot become a hue.
   */
-  --bg: #f6f7f9;
-  --bg-2: #edeff3;
-  --surface: #ffffff;
-  --surface-2: #fafbfc;
-  --surface-3: #eef1f5;
-  --border: #dfe3ea;
-  --border-strong: #c3cad6;
+  --bg: #0d0c0a;
+  --bg-2: #121110;
+  --surface: #161412;
+  --surface-2: #1c1a17;
+  --surface-3: #232019;
+  --border: #2a2722;
+  --border-strong: #3b3730;
 
-  --text: #0b0e14;
-  --text-2: rgba(11, 14, 20, 0.74);
-  --muted: rgba(11, 14, 20, 0.56);
+  --text: #ece7dc;
+  --text-2: rgba(236, 231, 220, 0.72);
+  --muted: rgba(236, 231, 220, 0.5);
 
-  --accent: #1f5fa8;
-  --accent-2: #17497f;
-  --accent-ink: #ffffff;
-  --accent-soft: rgba(31, 95, 168, 0.08);
-  --accent-line: rgba(31, 95, 168, 0.28);
+  --accent: #c8503c;
+  --accent-2: #d9674f;
+  --accent-ink: #130b08;
+  --accent-soft: rgba(200, 80, 60, 0.12);
+  --accent-line: rgba(200, 80, 60, 0.34);
 
-  /* A refusal is ink, not an alarm. */
+  /* A refusal is stamped in paper. */
   --seal: var(--text);
-  --seal-soft: rgba(11, 14, 20, 0.06);
+  --seal-ink: var(--bg);
+  --seal-soft: rgba(236, 231, 220, 0.08);
 
-  --danger: #a32f2a;
-  --danger-soft: rgba(163, 47, 42, 0.07);
-  --danger-line: rgba(163, 47, 42, 0.26);
+  --danger: var(--accent);
+  --danger-soft: var(--accent-soft);
+  --danger-line: var(--accent-line);
 
-  /* Frozen by the issuer. The one earned counter-hue. */
-  --ice: #b0653a;
-  --ice-soft: rgba(176, 101, 58, 0.09);
+  --ice: #7d94a8;
+  --ice-soft: rgba(125, 148, 168, 0.12);
 
-  /* Advisory. Ink at strength, never a hue. */
   --warn: var(--text-2);
-  --warn-soft: rgba(11, 14, 20, 0.05);
+  --warn-soft: rgba(236, 231, 220, 0.06);
 
   --radius: 4px;
   --radius-sm: 3px;
-  --shadow: 0 1px 2px rgba(11, 14, 20, 0.04);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: "Fraunces", Georgia, "Times New Roman", serif;
 
-  /* One easing curve for the whole site, so separate motion reads as one system. */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --label: 0.14em;
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -110,7 +113,7 @@ p { margin: 0; }
 .cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 
 /* ---------- header ---------- */
-.topbar { position: sticky; top: 0; z-index: 20; background: rgba(246, 247, 249, 0.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.topbar { position: sticky; top: 0; z-index: 20; background: rgba(13, 12, 10, 0.84); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
 .topbar-inner { display: flex; align-items: center; gap: 24px; height: 64px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 1.15rem; color: var(--text); letter-spacing: -0.02em; }
 .brand:hover { text-decoration: none; }
@@ -259,8 +262,9 @@ details.more > .more-body { margin-top: 14px; display: grid; gap: 16px; }
 .attack-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--border); }
 .attack-row .ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); flex-shrink: 0; }
 .attack-row.bad .ico { background: var(--danger-soft); color: var(--danger); }
-.attack-row.blocked { border-color: var(--danger-line); background: var(--danger-soft); }
-.attack-row.blocked .ico { background: var(--seal); color: var(--surface); }
+.attack-row.blocked { border-color: var(--seal); background: var(--seal); color: var(--seal-ink); }
+.attack-row.blocked .ico { background: var(--seal-ink); color: var(--seal); }
+.attack-row.blocked .muted { color: rgba(13, 12, 10, 0.68); }
 .attack-row.safe { border-color: var(--accent-line); background: var(--accent-soft); }
 .attack-row.safe .ico { background: var(--accent); color: var(--accent-ink); }
 
@@ -457,4 +461,58 @@ h1 em, h2 em, .display em { font-style: normal; color: var(--accent); }
   .cols-4 { grid-template-columns: repeat(2, 1fr); }
   .have:nth-child(3) { border-left: 0; }
   .have:nth-child(n+3) { border-top: 1px solid var(--border); }
+}
+
+/* ------------------------------------------------------------ how it works
+   Rialto's chapter shape: a number, one claim, one sentence, one figure that
+   assembles itself, and three links that let the reader check the claim
+   against something real instead of taking it. */
+
+.rise { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s var(--ease); }
+.rise.in { opacity: 1; transform: none; }
+
+.how { display: block; }
+.how .chapter { padding: 76px 0; border-bottom: 1px solid var(--border); }
+.how .chapter:last-child { border-bottom: 0; }
+.how .chapter.lede { text-align: center; }
+
+.how .num {
+  font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: var(--label); color: var(--muted); margin-bottom: 18px;
+}
+.how h2, .how .claim { text-align: center; max-width: 20ch; margin: 0 auto 14px; }
+.how .sub {
+  text-align: center; max-width: 60ch; margin: 0 auto; color: var(--text-2);
+  font-size: 1.02rem; line-height: 1.6;
+}
+
+/* the figure sits on a plate, with its claim underneath */
+.how .plate {
+  margin: 40px 0 26px; padding: 30px 26px 24px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+}
+.how .plate svg { width: 100%; height: auto; display: block; }
+.how .cap {
+  margin: 22px auto 0; max-width: 64ch; text-align: center;
+  color: var(--muted); font-size: 0.93rem; line-height: 1.6;
+}
+.how .cap strong { color: var(--text); font-weight: 600; }
+
+/* three ways to check the claim */
+.checks { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.checks a {
+  display: block; padding: 15px 16px; border-left: 1px solid var(--border);
+  background: var(--surface); text-decoration: none; transition: background .2s var(--ease);
+}
+.checks a:first-child { border-left: 0; }
+.checks a:hover { background: var(--surface-2); }
+.checks .k { display: block; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: var(--label); color: var(--muted); margin-bottom: 5px; }
+.checks .v { display: block; color: var(--accent); font-size: 0.92rem; }
+
+@media (max-width: 760px) {
+  .how .chapter { padding: 52px 0; }
+  .how .plate { padding: 18px 12px 16px; }
+  .checks { grid-template-columns: 1fr; }
+  .checks a { border-left: 0; border-top: 1px solid var(--border); }
+  .checks a:first-child { border-top: 0; }
 }
