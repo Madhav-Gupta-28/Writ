@@ -80,8 +80,15 @@ export function OpenOrder() {
       end: amt && endTime < startAt + period ? "The end date must allow at least one full interval after the first payment." : null,
       cap: cap === null && feeCapText ? "Enter an amount."
         : cap !== null && amt && (cap === 0n || cap >= amt) ? "Must be above zero and below the payment amount." : null,
+      // open() requires initialFunding >= amountPerPeriod + maxExecutorFee: a
+      // period has to be payable *with* its executor fee (§6.3). Validating
+      // against the amount alone would let the payer sign the USDC
+      // authorization and only then have the transaction revert
+      // InsufficientInitialFunding.
       funding: funding === null && fundMode === "custom" && fundText ? "Enter an amount."
-        : funding !== null && amt && funding < amt ? `Fund at least one payment (${usdc(amt)}).` : null,
+        : funding !== null && amt && cap !== null && funding < amt + cap
+          ? `Fund at least one payment plus its tip (${usdc(amt + cap)}).`
+          : null,
     };
     const covered = funding && amt && cap !== null ? funding / (amt + cap) : 0n;
     const ready = !!card && isAddress(beneficiary) && !!amt && cap !== null && funding !== null && !!funding &&

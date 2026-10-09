@@ -7,7 +7,7 @@
 // useOrder and useClient are stubbed so no RPC request is made; everything else
 // (routing, wagmi, react-query, the real formatters) runs for real.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { makeOrder, NOW, renderPage, TEST_BENEFICIARY, TEST_PAYER, testNet } from "../test/harness";
 
@@ -68,6 +68,32 @@ describe("OpenOrder", () => {
     // Every submit path is disabled until the form is valid.
     const buttons = screen.getAllByRole("button");
     expect(buttons.length).toBeGreaterThan(0);
+  });
+
+  it("requires funding of at least one payment PLUS its tip", async () => {
+    const { OpenOrder } = await import("./Open");
+    renderPage(<OpenOrder />, { route: "/open?net=testnet" });
+
+    // 10 USDC per payment. suggestedFeeCap is ~1% but clamped to a 0.05
+    // ceiling, so the cap is 0.05 and the minimum funding is 10.05, not 10.
+    fireEvent.change(screen.getByLabelText(/Amount per payment/i), { target: { value: "10" } });
+    fireEvent.click(screen.getByLabelText(/a different amount/i));
+    fireEvent.change(screen.getByLabelText(/Amount to add now/i), { target: { value: "10" } });
+
+    // open() would revert InsufficientInitialFunding. The form has to say so
+    // BEFORE the payer signs the USDC authorization, not after.
+    expect(document.body.textContent).toMatch(/at least one payment plus its tip/i);
+    expect(document.body.textContent).toMatch(/10\.05/);
+  });
+
+  it("accepts funding of exactly one payment plus its tip", async () => {
+    const { OpenOrder } = await import("./Open");
+    renderPage(<OpenOrder />, { route: "/open?net=testnet" });
+    fireEvent.change(screen.getByLabelText(/Amount per payment/i), { target: { value: "10" } });
+    fireEvent.click(screen.getByLabelText(/a different amount/i));
+    // Exactly the boundary: payment 10 + cap 0.05.
+    fireEvent.change(screen.getByLabelText(/Amount to add now/i), { target: { value: "10.05" } });
+    expect(document.body.textContent).not.toMatch(/at least one payment plus its tip/i);
   });
 
   it("suggests a fee cap of about 1% and clamps it", async () => {

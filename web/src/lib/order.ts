@@ -69,13 +69,40 @@ export function runway(o: Order): Runway {
   };
 }
 
+/**
+ * What one payment costs the order: the payment plus the executor fee `execute`
+ * reserves alongside it (§6.3). This is the single source of truth for "is this
+ * order payable" — the contract reverts Underfunded below it, so any UI that
+ * compares against `amountPerPeriod` alone will offer a button that reverts.
+ */
+export function costPerPayment(o: Order): bigint {
+  return o.amountPerPeriod + o.maxExecutorFee;
+}
+
+/** True when `execute` would not revert Underfunded. */
+export function isFunded(o: Order): boolean {
+  return o.balance >= costPerPayment(o);
+}
+
 /** The executor reward `execute` would pay right now (§5.5), and the caller's gas cost. */
 export function estimateReward(o: Order, gasPriceWei: bigint) {
   const gasCost = (EXECUTE_GAS * gasPriceWei) / 10n ** 12n;
   let fee = ((EXECUTE_GAS + REIMBURSE_OVERHEAD) * gasPriceWei) / 10n ** 12n + EXECUTOR_TIP;
   if (fee > o.maxExecutorFee) fee = o.maxExecutorFee;
-  const left = o.balance > o.amountPerPeriod ? o.balance - o.amountPerPeriod : 0n;
+
+  // _payExecutor also clamps to whatever is left in the order. Which balance
+  // that is depends on the path execute takes:
+  //   payment    - amountPerPeriod has already been deducted, and the
+  //                reservation guarantees the remainder covers maxExecutorFee,
+  //                so this clamp cannot bind. Kept to mirror the contract.
+  //   quarantine - no payment is made, so the whole balance is available.
+  // A Quarantined order is not payable at all (execute reverts NotActive), so
+  // the only live case here is the payment path.
+  const left = o.state === "Quarantined"
+    ? o.balance
+    : o.balance > o.amountPerPeriod ? o.balance - o.amountPerPeriod : 0n;
   if (fee > left) fee = left;
+
   return { fee, gasCost, profit: fee - gasCost };
 }
 

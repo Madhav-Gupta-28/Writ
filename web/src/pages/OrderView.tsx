@@ -10,7 +10,7 @@ import { useAction, useClient, useNetwork, useOrder, useParamId } from "../hooks
 import { humanError } from "../lib/errors";
 import { formatDate, formatDay, formatUsdc, intervalLabel, relative, short, usdc } from "../lib/format";
 import { simulateHijack, type Attempt } from "../lib/hijack";
-import { estimateReward, paymentsLeft, reclaimOpensAt, runway, type Order } from "../lib/order";
+import { costPerPayment, estimateReward, isFunded, paymentsLeft, reclaimOpensAt, runway, type Order } from "../lib/order";
 import { events, sendWrit } from "../lib/write";
 import { Addr, Note, Skel, StateBadge, StatusLine, Tabs, WalletGate } from "../ui";
 import { KeyCardPanel } from "./KeyCardPanel";
@@ -113,11 +113,11 @@ function PayCard({ net, order, now, gasPrice, refetch }: { net: Network; order: 
   const client = useClient(net);
   const action = useAction();
   const due = order.state === "Active" && now >= order.nextDueAt;
-  // execute() reserves the executor fee alongside the payment (§6.3), so an
-  // order holding between amount and amount+fee is NOT payable. Checking only
-  // the amount would offer a Pay button that reverts Underfunded.
-  const needed = order.amountPerPeriod + order.maxExecutorFee;
-  const underfunded = order.balance < needed;
+  // One source of truth with the contract: execute() reserves the executor fee
+  // alongside the payment (§6.3), so an order holding between amount and
+  // amount+fee is NOT payable.
+  const needed = costPerPayment(order);
+  const underfunded = !isFunded(order);
   const reward = estimateReward(order, gasPrice);
 
   const pay = () =>

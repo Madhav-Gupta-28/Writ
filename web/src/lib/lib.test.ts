@@ -5,7 +5,7 @@ import { writAbi } from "../../../shared/abi/writ.ts";
 import { humanError } from "./errors";
 import { duration, formatUsdc, parseUsdc, relative } from "./format";
 import { decryptKeyCard, encryptKeyCard, KeyCardError, parseKeyCardFile, checkPassword } from "./keycard";
-import { estimateReward, paymentsLeft, runway, type Order } from "./order";
+import { costPerPayment, estimateReward, isFunded, paymentsLeft, runway, type Order } from "./order";
 import { suggestedFeeCap } from "../pages/Open";
 
 const A = "0x00000000000000000000000000000000000000a1" as Address;
@@ -125,5 +125,54 @@ describe("human errors", () => {
   });
   it("wallet rejection", () => {
     expect(humanError(Object.assign(new Error("User rejected the request."), { code: 4001 }))).toMatch(/cancelled this in your wallet/);
+  });
+});
+
+// The contract reserves the executor fee alongside the payment, so "payable"
+// is balance >= amount + fee, not balance >= amount. Comparing against the
+// amount alone is how a UI ends up offering a button that reverts Underfunded.
+describe("costPerPayment / isFunded", () => {
+  it("costs the payment plus the fee cap", () => {
+    expect(costPerPayment(order({ amountPerPeriod: 10_000n, maxExecutorFee: 5_000n }))).toBe(15_000n);
+  });
+
+  it("is not funded between the amount and the amount plus the fee", () => {
+    for (const balance of [0n, 9_999n, 10_000n, 12_000n, 14_999n]) {
+      expect(isFunded(order({ balance, amountPerPeriod: 10_000n, maxExecutorFee: 5_000n }))).toBe(false);
+    }
+  });
+
+  it("is funded at exactly the amount plus the fee, and above", () => {
+    for (const balance of [15_000n, 15_001n, 360_000n]) {
+      expect(isFunded(order({ balance, amountPerPeriod: 10_000n, maxExecutorFee: 5_000n }))).toBe(true);
+    }
+  });
+
+  it("agrees with paymentsFunded at the boundary", () => {
+    const o = order({ balance: 15_000n, amountPerPeriod: 10_000n, maxExecutorFee: 5_000n });
+    expect(isFunded(o)).toBe(true);
+    expect(runway(o).funded).toBe(1n);
+  });
+});
+
+describe("estimateReward", () => {
+  const GAS = 20_000_000_010n;
+
+  it("never exceeds the fee cap", () => {
+    const r = estimateReward(order({ maxExecutorFee: 1_000n }), GAS);
+    expect(r.fee).toBeLessThanOrEqual(1_000n);
+  });
+
+  it("is profitable at the floor gas price", () => {
+    const r = estimateReward(order(), GAS);
+    expect(r.profit).toBeGreaterThan(0n);
+  });
+
+  it("uses the whole balance on a quarantined order, where no payment is deducted", () => {
+    const base = { balance: 4_000n, amountPerPeriod: 10_000n, maxExecutorFee: 50_000n };
+    // Active: the clamp is balance - amount, which floors at 0.
+    expect(estimateReward(order({ ...base, state: "Active" }), GAS).fee).toBe(0n);
+    // Quarantined: execute makes no payment, so the whole balance is available.
+    expect(estimateReward(order({ ...base, state: "Quarantined" }), GAS).fee).toBe(4_000n);
   });
 });
