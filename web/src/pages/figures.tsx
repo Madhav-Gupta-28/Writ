@@ -51,7 +51,7 @@ const AUTHORITY: [string, string][] = [
   ["the wallet that funded it", "refused"],
   ["the recipient", "refused"],
   ["us, the authors", "refused"],
-  ["anyone, with a quantum computer", "refused"],
+  ["a quantum computer, forging the key card", "refused"],
 ];
 
 export function StandingOrder() {

@@ -52,7 +52,7 @@ const TAPE = [
   "redirect payments → needs the key card",
   `${SIG_BYTES}-byte SLH-DSA signature`,
   "checked by Arc at 0x1800…0004",
-  `${EXECUTE.usd} to press Pay`,
+  `${EXECUTE.usd} fee per payment · refunded by the order`,
   "no admin · no server · no keeper",
 ];
 
@@ -93,7 +93,7 @@ export function Home() {
             <div className="facts">
               <div className="fact">
                 <span className="v num"><CountUp value={EXECUTE.usd} /></span>
-                <span className="k">for a stranger to press Pay, <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
+                <span className="k">network fee per payment, refunded to whoever presses Pay, <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
               </div>
               <div className="fact">
                 <span className="v num"><CountUp value={SIG_BYTES} /></span>
@@ -112,7 +112,7 @@ export function Home() {
               <StandingOrder />
             </Tilt>
             <span className="orbit orbit-a" aria-hidden="true"><ShieldX size={15} /> stolen wallet · refused</span>
-            <span className="orbit orbit-b" aria-hidden="true"><ShieldCheck size={15} /> checked by Arc · {fmtGas(PQ_ACTION.gas)} gas</span>
+            <span className="orbit orbit-b" aria-hidden="true"><ShieldCheck size={15} /> key card action · {fmtGas(PQ_ACTION.gas)} gas</span>
             <span className="orbit orbit-c" aria-hidden="true"><ServerOff size={15} /> no server · no keeper</span>
           </div>
         </div>

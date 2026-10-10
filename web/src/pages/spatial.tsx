@@ -89,7 +89,7 @@ export function PaysScene() {
       </div>
       <div className="anyone">
         <Pipe dashed />
-        <Node icon={HandCoins} title="Anyone" sub={`presses Pay, keeps a tip · costs them ${EXECUTE.usd}`} tone="accent" tag="any stranger" />
+        <Node icon={HandCoins} title="Anyone" sub={`presses Pay, gets the ${EXECUTE.usd} fee back plus a tip`} tone="accent" tag="any stranger" />
       </div>
       <figcaption className="stage-cap">No keeper, no cron, no server appears anywhere in this picture. That is the point.</figcaption>
     </figure>

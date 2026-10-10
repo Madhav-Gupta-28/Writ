@@ -83,7 +83,7 @@ export function How() {
         <Timeline />
         <Checks items={[
           ["What anyone calls", "execute(id)", `${ex}/address/${addr}`],
-          ["What it costs them", `about ${EXECUTE.usd} (mainnet tx)`, `${ex}/tx/${EXECUTE.tx}`],
+          ["The fee they front", `about ${EXECUTE.usd}, refunded (mainnet tx)`, `${ex}/tx/${EXECUTE.tx}`],
           ["Try it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
         ]} />
       </Scene>

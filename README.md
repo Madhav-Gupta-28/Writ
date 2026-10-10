@@ -115,8 +115,8 @@ Measured here, not assumed. Reproduction commands are inline in
 
 ## Tests
 
-**197 green:** 123 Solidity local · 7 against live Arc testnet · 22 TypeScript
-parity · 45 web. Five invariant campaigns, 4,096 calls, zero reverts. Every
+**212 green:** 119 Solidity local (Foundry's count) · 7 against live Arc
+testnet · 22 TypeScript parity · 64 web. Five invariant campaigns, 4,096 calls, zero reverts. Every
 external function, every custom error and every event is exercised: **16/16,
 25/25, 14/14**.
 

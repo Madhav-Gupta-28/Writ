@@ -38,11 +38,12 @@ export const OPEN: Measured = {
 };
 
 /**
- * Tests passing as of 2026-10-10: 123 Solidity (the invariant suite's 5
- * invariants counted individually), 7 against live Arc testnet, 22 TypeScript
+ * Tests passing as of 2026-10-10, as each runner reports them: 119 Solidity
+ * local (Foundry's count, which reports the invariant suite as one test), 7
+ * against live Arc testnet (skipped by a plain `forge test`), 22 TypeScript
  * parity, 64 web. Update when the suites change.
  */
-export const TESTS = { total: 216, live: 7, asOf: "2026-10-10" };
+export const TESTS = { total: 212, live: 7, asOf: "2026-10-10" };
 
 /** SLH-DSA-SHA2-128s signature size (FIPS 205; §3.4). */
 export const SIG_BYTES = "7,856";
