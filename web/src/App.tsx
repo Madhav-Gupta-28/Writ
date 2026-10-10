@@ -1,27 +1,25 @@
+// The shell: a bar, the routes, and a footer that does real work.
+//
+// Two things used to live up here and no longer do. A network switcher, which
+// asked a visitor to choose between mainnet and testnet before they knew what
+// the product was and defaulted them to play money; and a standing mainnet
+// warning banner, which cost a strip of vertical space on every page to say
+// something that is now simply always true. Both are in the footer's one line
+// instead (see config.ts for why the app is mainnet-only).
+
 import { useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { ScrollText, Search, TriangleAlert } from "lucide-react";
-import { NETWORKS, type NetworkName } from "./config";
+import { ArrowUpRight, ScrollText, Search } from "lucide-react";
+import { NETWORKS } from "./config";
 import { useNetwork } from "./hooks";
 import { Home } from "./pages/Home";
 import { How } from "./pages/How";
 import { OpenOrder } from "./pages/Open";
 import { OrderView } from "./pages/OrderView";
-import { Addr, ConnectButton, NetLink } from "./ui";
+import { ConnectButton, NetLink } from "./ui";
 
-function NetworkSwitch() {
-  const net = useNetwork();
-  const nav = useNavigate();
-  const { pathname } = useLocation();
-  return (
-    <label className="net-switch">
-      <span className="sr-only">Network</span>
-      <select value={net.name} onChange={(e) => nav(`${pathname}?net=${e.target.value as NetworkName}`)} className={net.name === "mainnet" ? "is-mainnet" : ""}>
-        {Object.values(NETWORKS).map((n) => <option key={n.name} value={n.name}>{n.label}</option>)}
-      </select>
-    </label>
-  );
-}
+const MAINNET = NETWORKS.mainnet;
+const live = MAINNET.featuredOrder;
 
 function FindOrder() {
   const [id, setId] = useState("");
@@ -35,8 +33,56 @@ function FindOrder() {
   );
 }
 
-export function App() {
+/** Every column is a way to check a claim the site makes, or a way to act on it. */
+function Footer() {
   const net = useNetwork();
+  return (
+    <footer className="footer">
+      <div className="container">
+        <div className="foot-grid">
+          <div className="foot-brand">
+            <span className="brand"><span className="brand-mark"><ScrollText size={16} /></span>Writ</span>
+            <p>A standing USDC order on Arc that only an offline key can redirect.</p>
+          </div>
+
+          <div className="foot-col">
+            <div className="eyebrow">Use it</div>
+            <NetLink to="/open">Create an order</NetLink>
+            {live !== null && <NetLink to={`/order/${live}`}>Live order #{live.toString()}</NetLink>}
+            <NetLink to="/how">How it works</NetLink>
+          </div>
+
+          <div className="foot-col">
+            <div className="eyebrow">Check it</div>
+            <a href={`${net.explorer}/address/${net.writ}`} target="_blank" rel="noreferrer">
+              Contract on Arc <ArrowUpRight size={12} />
+            </a>
+            <a href={`https://sourcify.dev/#/lookup/${net.writ}`} target="_blank" rel="noreferrer">
+              Verified source <ArrowUpRight size={12} />
+            </a>
+            <a href="https://csrc.nist.gov/pubs/fips/205/final" target="_blank" rel="noreferrer">
+              NIST FIPS 205 <ArrowUpRight size={12} />
+            </a>
+          </div>
+
+          <div className="foot-col">
+            <div className="eyebrow">What it never does</div>
+            <span>Hold your money</span>
+            <span>Run a server</span>
+            <span>See your key card</span>
+          </div>
+        </div>
+
+        <div className="foot-rule">
+          <span>Arc mainnet · chain 5042 · real money</span>
+          <span className="mono">{net.writ}</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export function App() {
   return (
     <div className="app">
       <header className="topbar">
@@ -48,14 +94,11 @@ export function App() {
             <FindOrder />
           </nav>
           <div className="topbar-right">
-            <NetworkSwitch />
+            <span className="net-badge">Arc mainnet</span>
             <ConnectButton />
           </div>
         </div>
       </header>
-      {net.name === "mainnet" && (
-        <div className="mainnet-banner"><div className="container"><TriangleAlert size={16} />You're on Arc mainnet. Anything you send here is real money.</div></div>
-      )}
       <main className="main">
         <div className="container">
           <Routes>
@@ -69,12 +112,7 @@ export function App() {
           </Routes>
         </div>
       </main>
-      <footer className="footer">
-        <div className="container">
-          <span>Writ on {net.label} · contract <Addr net={net} a={net.writ} /></span>
-          <span>No servers. No sign-ups. Your key card never leaves your browser.</span>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -45,7 +45,7 @@ describe("Home", () => {
   it("leads with the claim and links to the live mainnet order", async () => {
     const { Home } = await import("./Home");
     renderPage(<Home />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/still pays/i);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/not even your wallet can redirect/i);
     // The featured order is mainnet #2.
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(links.some((h) => h?.includes("/order/2"))).toBe(true);
@@ -331,15 +331,29 @@ describe("How", () => {
 });
 
 describe("App shell", () => {
-  it("warns on mainnet and not on testnet", async () => {
+  // The app is mainnet-only on purpose (config.ts). A judge who lands on
+  // testnet sees play money, which throws away the one fact worth selling. A
+  // stale ?net=testnet link in a submission would do exactly that silently, so
+  // the override is asserted dead rather than trusted.
+  it("is mainnet-only and ignores ?net=testnet", async () => {
     const { App } = await import("../App");
-    const mainnet = renderPage(<App />, { route: "/?net=mainnet" });
-    expect(document.body.textContent).toMatch(/real money/i);
-    mainnet.unmount();
-
-    localStorage.clear();
     renderPage(<App />, { route: "/?net=testnet" });
-    expect(document.body.textContent).not.toMatch(/real money/i);
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/arc mainnet/i);
+    expect(body).not.toMatch(/testnet/i);
+    // and there is no way to ask for anything else
+    expect(document.querySelector(".net-switch")).toBeNull();
+    expect(document.querySelectorAll("select").length).toBe(0);
+  });
+
+  it("gives the footer a way to check every claim", async () => {
+    const { App } = await import("../App");
+    renderPage(<App />, { route: "/" });
+    const foot = document.querySelector(".footer");
+    const hrefs = [...(foot?.querySelectorAll("a") ?? [])].map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("explorer.arc.io"))).toBe(true);
+    expect(hrefs.some((h) => h.includes("sourcify"))).toBe(true);
+    expect(hrefs.some((h) => h.includes("/open"))).toBe(true);
   });
 
   it("renders a not-found page for an unknown route", async () => {
