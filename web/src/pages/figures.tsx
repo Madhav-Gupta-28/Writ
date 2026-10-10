@@ -5,6 +5,7 @@
 // spatial scenes in pages/spatial.tsx: an SVG on a fixed viewBox shrinks its
 // type with its frame, which is what made them look squeezed.
 
+import type { CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { NETWORKS } from "../config";
@@ -158,7 +159,7 @@ export function Timeline() {
       </div>
       <div className="tl-bars" role="img" aria-label={o ? `Order #${id}: ${paid} of ${total} payments made${due ? ", and the next one is due now" : ""}.` : "Loading the live order's schedule."}>
         {Array.from({ length: total }, (_, i) => (
-          <span key={i} className="tl-bar" data-state={i < paid ? "paid" : i === paid && due ? "due" : "later"} />
+          <span key={i} className="tl-bar" style={{ "--i": i } as CSSProperties} data-state={i < paid ? "paid" : i === paid && due ? "due" : "later"} />
         ))}
       </div>
       <div className="tl-foot">

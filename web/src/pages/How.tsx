@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { ArrowDown } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
+import { Words } from "../lib/motion";
 import { EXECUTE } from "../measured";
 import { Timeline } from "./figures";
 import { FrozenScene, KeysScene, LiveCall, PaysScene, SignatureStats, Tilt } from "./spatial";
@@ -61,7 +62,7 @@ export function How() {
   return (
     <div className="how-spatial">
       <section className="how-intro">
-        <h1 className="mega">How Writ works</h1>
+        <h1 className="mega"><Words text="How Writ works" step={90} /></h1>
         <p className="intro-sub">Three ideas. Each one is something you can check on the chain yourself.</p>
         <div className="portals">
           {PORTALS.map((p, i) => (

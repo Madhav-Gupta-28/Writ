@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ServerOff, ShieldCheck, ShieldX } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
+import { CountUp, Ticker, Words } from "../lib/motion";
 import { EXECUTE, OPEN, PQ_ACTION, SIG_BYTES, TESTS, fmtGas } from "../measured";
 import { NetLink } from "../ui";
 import { StandingOrder, Timeline } from "./figures";
@@ -44,6 +45,17 @@ const TODAY: [string, string, string][] = [
   ["A contract subscription", "whoever holds the owner key", "points it anywhere, instantly"],
 ];
 
+// Every line is true of the deployed contract or of order #2.
+const TAPE = [
+  `order #${live?.toString() ?? "2"} · 0.01 USDC a day`,
+  "stolen wallet → refused",
+  "redirect payments → needs the key card",
+  `${SIG_BYTES}-byte SLH-DSA signature`,
+  "checked by Arc at 0x1800…0004",
+  `${EXECUTE.usd} to press Pay`,
+  "no admin · no server · no keeper",
+];
+
 const NOT: [string, string][] = [
   ["No admin", "nobody can pause it"],
   ["No upgrade path", "the code cannot change"],
@@ -62,7 +74,8 @@ export function Home() {
             <span className="pill">order #{live?.toString() ?? "2"} · paying daily</span>
           </div>
           <h1>
-            A recurring USDC payment <em>not even your wallet can redirect.</em>
+            <Words text="A recurring USDC payment" />{" "}
+            <em><Words text="not even your wallet can redirect." start={240} /></em>
           </h1>
         </div>
         <div className="hero2-grid">
@@ -79,11 +92,11 @@ export function Home() {
             </div>
             <div className="facts">
               <div className="fact">
-                <span className="v num">{EXECUTE.usd}</span>
+                <span className="v num"><CountUp value={EXECUTE.usd} /></span>
                 <span className="k">for a stranger to press Pay, <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
               </div>
               <div className="fact">
-                <span className="v num">{SIG_BYTES}</span>
+                <span className="v num"><CountUp value={SIG_BYTES} /></span>
                 <span className="k">bytes in one key card signature</span>
               </div>
               <div className="fact">
@@ -105,11 +118,14 @@ export function Home() {
         </div>
       </section>
 
+      {/* a strip of tape running under the hero: the claims, moving */}
+      <Ticker items={TAPE} />
+
       {/* the numbers */}
       <section className="statband">
         {STATS.map(({ v, k, src, href }) => (
           <div key={k} className="stat">
-            <div className="v num">{v}</div>
+            <div className="v num"><CountUp value={v} /></div>
             <div className="eyebrow">{k}</div>
             <div className="src">
               {href ? <a href={href} target="_blank" rel="noreferrer">{src} ↗</a> : src}

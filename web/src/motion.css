@@ -1,0 +1,138 @@
+/* ============================================================================
+   Motion. Loaded last. Signage moves in a few physical ways: letters flip up
+   into a board, a sign is hung and settles, a stamp comes down hard, tape runs.
+   This file uses only those.
+
+   Rules:
+     - The finished frame is the default. Every animation here starts from a
+       keyframe and ends at the element's own resting style, so nothing is left
+       hidden if an animation never runs.
+     - Keyframes use the individual `translate` / `rotate` / `scale` properties,
+       never `transform`, so they compose with the transforms elements already
+       have (the plate's lean, the key card's tilt, a sticker's angle) instead of
+       wiping them.
+     - All of it is inside `prefers-reduced-motion: no-preference`. Under reduced
+       motion the site is exactly as it was: still, and complete.
+   ========================================================================== */
+
+/* The tape exists in both modes; it only runs when motion is allowed. */
+html, body { overflow-x: clip; }
+.ticker {
+  margin-inline: calc(50% - 50vw);
+  margin-block: clamp(-56px, -4vw, -24px);
+  background: var(--accent); color: var(--ink);
+  border-block: 1.5px solid var(--ink);
+  rotate: -1.2deg;
+  overflow: hidden; padding-block: 13px;
+}
+.ticker-track { display: flex; width: max-content; }
+.ticker-row { display: flex; flex-shrink: 0; }
+.ticker-item {
+  display: inline-flex; align-items: center; gap: 22px; padding-right: 22px;
+  font-family: var(--mono); font-size: 14px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; white-space: nowrap;
+}
+.ticker-item::after { content: ""; width: 8px; height: 8px; background: var(--ink); }
+.word { display: inline-block; vertical-align: top; overflow: hidden; padding-bottom: 0.14em; margin-bottom: -0.14em; }
+.word > span { display: inline-block; }
+.tl-bar { transform-origin: bottom; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ------------------------------------------------------------ arriving */
+  .main > * { animation: page-in 0.5s var(--ease) backwards; }
+  @keyframes page-in { from { opacity: 0; translate: 0 14px; } }
+
+  /* the headline flips up a word at a time, like a split-flap board */
+  .word > span { animation: word-up 0.85s var(--ease) backwards; animation-delay: var(--d, 0ms); }
+  @keyframes word-up { from { translate: 0 108%; } }
+
+  .hero2-kicker { animation: fade-up 0.6s var(--ease) backwards; }
+  .hero2-copy > * { animation: fade-up 0.7s var(--ease) backwards; }
+  .hero2-copy > :nth-child(1) { animation-delay: 650ms; }
+  .hero2-copy > :nth-child(2) { animation-delay: 780ms; }
+  .hero2-copy > :nth-child(3) { animation-delay: 910ms; }
+  @keyframes fade-up { from { opacity: 0; translate: 0 18px; } }
+
+  /* the plate is hung: it drops in at an angle and settles */
+  .hero-art .hero-tilt { animation: hang 1s cubic-bezier(0.2, 1.25, 0.35, 1) 420ms backwards; }
+  @keyframes hang { from { opacity: 0; translate: 0 -46px; rotate: -5deg; } 40% { opacity: 1; } }
+
+  /* then the refusals are stamped, one after another */
+  .hero-art .wp-no .stamp { animation: stamp 0.42s cubic-bezier(0.25, 1.7, 0.45, 1) 1250ms backwards; }
+  .hero-art .wp-no:nth-child(8) .stamp { animation-delay: 1250ms; }
+  .hero-art .wp-no:nth-child(9) .stamp { animation-delay: 1420ms; }
+  .hero-art .wp-no:nth-child(10) .stamp { animation-delay: 1590ms; }
+  .hero-art .wp-no:nth-child(11) .stamp { animation-delay: 1760ms; }
+  @keyframes stamp { from { opacity: 0; scale: 2.3; } 55% { opacity: 1; } }
+
+  /* and the labels are slapped on */
+  .orbit { animation: slap 0.5s cubic-bezier(0.25, 1.6, 0.45, 1) backwards; }
+  .orbit-a { animation-delay: 2000ms; }
+  .orbit-b { animation-delay: 2150ms; }
+  .orbit-c { animation-delay: 2300ms; }
+  @keyframes slap { from { opacity: 0; scale: 1.5; rotate: 8deg; } 50% { opacity: 1; } }
+
+  /* the tape runs; hover holds it so it can be read */
+  .ticker-track { animation: tape 42s linear infinite; }
+  .ticker:hover .ticker-track { animation-play-state: paused; }
+  @keyframes tape { to { translate: -50% 0; } }
+
+  /* a live dot blinks like a signal lamp */
+  .live-dot::before { animation: lamp 1.4s ease-in-out infinite; }
+  @keyframes lamp { 50% { opacity: 0.25; } }
+
+  /* --------------------------------------------- arriving as you scroll
+     A Rise turns `.in` when it is reached (or at once if already on screen),
+     and its pieces come in one after another instead of as one slab. */
+  .rise { transform: none; }
+  .rise:not(.in) { translate: 0 28px; }
+  .rise.in { translate: 0 0; transition: opacity 0.6s ease, translate 0.7s var(--ease); }
+
+  .rise.in :is(.cols-3, .cols-4, .tries, .flow, .sig-stats, .nothave, .stage-frozen, .checks) > * {
+    animation: fade-up 0.6s var(--ease) backwards;
+  }
+  .rise.in :is(.cols-3, .cols-4, .tries, .flow, .sig-stats, .nothave, .stage-frozen, .checks) > :nth-child(2) { animation-delay: 90ms; }
+  .rise.in :is(.cols-3, .cols-4, .tries, .flow, .sig-stats, .nothave, .stage-frozen, .checks) > :nth-child(3) { animation-delay: 180ms; }
+  .rise.in :is(.cols-3, .cols-4, .tries, .flow, .sig-stats, .nothave, .stage-frozen, .checks) > :nth-child(4) { animation-delay: 270ms; }
+  .rise.in :is(.cols-3, .cols-4, .tries, .flow, .sig-stats, .nothave, .stage-frozen, .checks) > :nth-child(5) { animation-delay: 360ms; }
+  .rise.in .claim, .rise.in .scene-title { animation: fade-up 0.7s var(--ease) backwards; }
+
+  /* the key card is laid down over the thief's list */
+  .rise.in .keys-front { animation: lay 0.8s cubic-bezier(0.2, 1.2, 0.35, 1) 350ms backwards; }
+  @keyframes lay { from { opacity: 0; translate: 60px -20px; rotate: 8deg; } }
+
+  /* the schedule's bars rise one after another */
+  .rise.in .tl-bar { animation: bar-up 0.5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 30ms + 150ms); }
+  @keyframes bar-up { from { scale: 1 0.08; } }
+
+  /* /how: the three doors arrive in turn */
+  .portals > * { animation: fade-up 0.7s var(--ease) backwards; }
+  .portals > :nth-child(1) { animation-delay: 300ms; }
+  .portals > :nth-child(2) { animation-delay: 420ms; }
+  .portals > :nth-child(3) { animation-delay: 540ms; }
+  .intro-sub { animation: fade-up 0.7s var(--ease) 250ms backwards; }
+
+  /* ------------------------------------------------------------ touch
+     Things you can point at answer: they lift off the wall onto their shadow. */
+  .today, .sig-tile, .nothave-tile, .node, .tries li {
+    transition: translate 0.18s var(--ease), box-shadow 0.18s var(--ease), border-color 0.18s;
+  }
+  .today:hover, .sig-tile:hover, .nothave-tile:hover, .node:hover {
+    translate: -3px -3px; box-shadow: var(--hard-sm); border-color: var(--ink);
+  }
+  .node-raised:hover, .sig-tile-raised:hover { box-shadow: 9px 9px 0 var(--ink); }
+  .node-sunk:hover { translate: 0 0; box-shadow: none; border-color: var(--border-strong); }
+  .tries li:hover { translate: 4px 0; }
+
+  .btn svg, .portal-go svg, .tl-link svg { transition: translate 0.2s var(--ease); }
+  .btn-primary:hover svg:last-child, .live-cta .btn:hover svg:last-child, .portal:hover .portal-go svg, .tl-link:hover svg { translate: 4px 0; }
+  .portal:hover .portal-go svg { translate: 0 3px; }
+
+  .keycard-3d { transition: transform 0.5s var(--ease), rotate 0.4s var(--ease), box-shadow 0.3s var(--ease); }
+  .keys-front:hover .keycard-3d { rotate: 3deg; box-shadow: 12px 12px 0 var(--accent); }
+
+  .writ-plate .wp-line { transition: background 0.15s; }
+  .writ-plate .wp-line:hover { background: var(--surface); }
+  .wp-line .stamp { transition: rotate 0.2s var(--ease), scale 0.2s var(--ease); }
+  .wp-line:hover .stamp { rotate: 3deg; scale: 1.08; }
+}
