@@ -133,8 +133,8 @@ export function OpenOrder() {
       <div className="card stack" style={{ maxWidth: 720 }}>
         <div className="done-line" style={{ fontSize: "1.1rem" }}><PartyPopper size={22} />Order #{openedId.toString()} is live</div>
         <StatusLine status={action.status} net={net} />
-        <p className="text-2">The first payment is due {formatDate(openedStart)}. From then on, anyone can press Pay on the order page and earn the tip.</p>
-        <Note icon={KeyRound} kind="warn">Keep your key card file and its password safe. They're the only way to change or cancel this order.</Note>
+        <p className="text-2">First payment due {formatDate(openedStart)}. From then on anyone can press Pay and earn the tip.</p>
+        <Note icon={KeyRound} kind="warn">Keep the key card file and its password safe. They are the only way to change or cancel this order.</Note>
         <div><NetLink to={`/order/${openedId}`} className="btn btn-primary btn-lg">Go to order #{openedId.toString()} <ArrowRight size={18} /></NetLink></div>
       </div>
     );
@@ -145,14 +145,14 @@ export function OpenOrder() {
   return (
     <div className="stack">
       <div className="section-head" style={{ marginBottom: 4 }}>
-        <h1>Create a recurring payment</h1>
-        <p>Three steps. You'll sign once, and it pays on schedule from then on.</p>
+        <h1>Create a standing order</h1>
+        <p>Three steps. You sign once.</p>
       </div>
       <div className="open-layout">
         <div className="stack">
           <section className={`card step-card ${walletOk ? "done" : ""}`}>
             <div className="step-title"><span className="step-num">1</span><h2>Connect your wallet</h2></div>
-            <WalletGate net={net} why="Your wallet adds the money and pays the small network fee (in USDC).">
+            <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
               <p className="done-line"><CircleCheck size={18} />Connected to {net.label}</p>
             </WalletGate>
           </section>
@@ -163,8 +163,8 @@ export function OpenOrder() {
               <div className="keycard-explain">
                 <KeyRound size={22} className="ico icon" />
                 <div className="text-2">
-                  <strong style={{ color: "var(--text)" }}>Your key card is {KEY_CARD_LINE}</strong> Not even your wallet can change the
-                  recipient without it, so a stolen wallet can't redirect your payments. It's made here in your browser and never sent anywhere.
+                  <strong style={{ color: "var(--text)" }}>Your key card is {KEY_CARD_LINE}</strong>
+                  The only thing that can ever redirect this money. Made here, never sent anywhere.
                 </div>
               </div>
             )}
@@ -173,9 +173,9 @@ export function OpenOrder() {
 
           <section className={`card step-card ${card ? "" : "locked"}`}>
             <div className="step-title"><span className="step-num">3</span><h2>Who, how much, how often</h2></div>
-            {!card && <p className="muted">Save your key card first. This unlocks once it's checked.</p>}
+            {!card && <p className="step-wait">Unlocks once your key card is saved.</p>}
             <fieldset disabled={!card || action.busy}>
-              <Field label="Recipient address" error={calc.errors.beneficiary} hint="Who gets paid. Only your key card can change this later.">
+              <Field label="Recipient address" error={calc.errors.beneficiary} hint="Only your key card can change this later.">
                 <input className="mono" placeholder="0x…" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value.trim())} spellCheck={false} />
               </Field>
               <div className="cols-2">
@@ -194,7 +194,7 @@ export function OpenOrder() {
                   </select>
                   {!asap && <input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} aria-label="First payment time" />}
                 </Field>
-                <Field label="Last payment on or before" error={calc.errors.end} hint="Required, as a safety net if the key card is ever lost.">
+                <Field label="Last payment on or before" error={calc.errors.end} hint="A safety net if the key card is ever lost.">
                   <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
                 </Field>
               </div>
@@ -203,11 +203,11 @@ export function OpenOrder() {
                 <span className="field-label">How much to put in now</span>
                 <label className="choice">
                   <input type="radio" checked={fundMode === "all"} onChange={() => setFundMode("all")} />
-                  <span>Enough for every payment{calc.fundAll !== null && calc.payments > 0n ? <> · <strong>{usdc(calc.fundAll)}</strong></> : ""}</span>
+                  <span>Every payment{calc.fundAll !== null && calc.payments > 0n ? <> · <strong>{usdc(calc.fundAll)}</strong></> : ""}</span>
                 </label>
                 <label className="choice">
                   <input type="radio" checked={fundMode === "custom"} onChange={() => setFundMode("custom")} />
-                  <span>A different amount (you or anyone can add more later)</span>
+                  <span>A different amount <span className="muted">— anyone can top it up later</span></span>
                 </label>
                 {fundMode === "custom" && (
                   <Field label="Amount to add now (USDC)" error={calc.errors.funding}>
@@ -220,10 +220,10 @@ export function OpenOrder() {
                 <summary>More options <ChevronDown size={16} /></summary>
                 <div className="more-body cols-2">
                   <Field label="Max tip per payment (USDC)" error={calc.errors.cap}
-                         hint={<>Whoever presses Pay gets their network fee back plus a small tip, up to this. Default {calc.amt ? usdc(suggestedFeeCap(calc.amt)) : "about 1%"}.</>}>
+                         hint={<>Whoever presses Pay gets their fee back plus a tip, up to this. Default {calc.amt ? usdc(suggestedFeeCap(calc.amt)) : "about 1%"}.</>}>
                     <input inputMode="decimal" placeholder={calc.amt ? formatUsdc(suggestedFeeCap(calc.amt)) : "0.005"} value={feeCapText} onChange={(e) => setFeeCapText(e.target.value)} />
                   </Field>
-                  <Field label="Reference (optional)" hint="For example an invoice number. It's recorded with every payment.">
+                  <Field label="Reference (optional)" hint="An invoice number, say. Recorded with every payment.">
                     <input value={refText} maxLength={100} onChange={(e) => setRefText(e.target.value)} />
                   </Field>
                 </div>
@@ -245,7 +245,7 @@ export function OpenOrder() {
             <li><span>Payments</span><span>{calc.payments > 0n ? calc.payments.toString() : "—"}</span></li>
             <li><span>Covers</span><span>{calc.funding && calc.payments > 0n ? (calc.covered >= calc.payments ? "Every payment" : `${calc.covered} of ${calc.payments}`) : "—"}</span></li>
           </ul>
-          <p className="field-hint">Anything left over comes back to you. You'll sign one USDC permission, then confirm one transaction.</p>
+          <p className="field-hint">One signature, then one transaction. Anything left over comes back to you.</p>
           <WalletGate net={net}>
             <button className="btn btn-primary btn-xl" disabled={!calc.ready || action.busy} onClick={submit}>Sign and create order</button>
           </WalletGate>

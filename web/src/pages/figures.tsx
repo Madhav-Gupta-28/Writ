@@ -177,3 +177,136 @@ export function Frozen() {
     </div>
   );
 }
+
+/* ── The hero ────────────────────────────────────────────────────────────
+   The product, in one frame.
+
+   What this replaces was five boxes and two side notes — a diagram of roles,
+   which is an org chart, not an artifact. Nearly blank as a screenshot, and a
+   screenshot is what ends up in a judging deck.
+
+   This is the order itself, set as what it is: a standing order on paper, with
+   an authority block under the rule. The four refusals land one at a time, and
+   the last line is the only one in the seal colour. Every figure is real —
+   order #2 on Arc mainnet.
+
+   HTML rather than SVG because it is a document: it has to reflow on a phone
+   and the type has to be the page's own type, not a drawing of type. */
+
+const TERMS: [string, string][] = [
+  ["pays", "0.01 USDC"],
+  ["every", "24 hours"],
+  ["to", "0x1258…C6c5"],
+  ["until", "1 Nov 2026"],
+];
+
+/** The four things a thief with your wallet would try, and what Arc says. */
+const AUTHORITY: [string, string][] = [
+  ["the wallet that funded it", "refused"],
+  ["the recipient", "refused"],
+  ["us, the authors", "refused"],
+  ["anyone, with a quantum computer", "refused"],
+];
+
+export function StandingOrder() {
+  // four terms, four refusals, then the line that is the whole point
+  const [ref, n] = useSteps<HTMLDivElement>(9, 340, "-40px");
+
+  return (
+    <div ref={ref} className="writ-plate">
+      <div className="wp-head">
+        <span>Standing order №2</span>
+        <span className="wp-id">Arc mainnet · active</span>
+      </div>
+
+      {TERMS.map(([k, v], i) => (
+        <div key={k} className="wp-line" data-in={n > i}>
+          <span className="k">{k}</span>
+          <span className="v">{v}</span>
+        </div>
+      ))}
+
+      <div className="wp-rule" data-in={n > 4}>
+        <span>who may change where this money goes</span>
+      </div>
+
+      {AUTHORITY.map(([k, v], i) => (
+        <div key={k} className="wp-line wp-no" data-in={n > i + 4}>
+          <span className="k">{k}</span>
+          <span className="v stamp">{v}</span>
+        </div>
+      ))}
+
+      <div className="wp-total" data-in={n > 8}>
+        <span className="k">one key card, held offline</span>
+        <span className="v">the only thing that can</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── A schedule that runs without anyone minding it ──────────────────────
+   Twenty-five periods. The paid ones fill in, the due one pulses, and the
+   caption is the only sentence: nobody is running this. */
+export function Timeline() {
+  const [ref, n] = useSteps<HTMLDivElement>(26, 95, "-40px");
+  const total = 25;
+  const paid = n > total ? total : n;
+  return (
+    <div ref={ref} className="tl">
+      <div className="tl-head">
+        <span>one period per day · twenty-five of them</span>
+        <span className="tl-n num">{paid}/{total}</span>
+      </div>
+      <div className="tl-bars">
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className="tl-bar" data-state={i < paid ? "paid" : i === paid ? "due" : "later"} />
+        ))}
+      </div>
+      <div className="tl-foot">
+        <span>funded once</span>
+        <span>·</span>
+        <span>no keeper, no cron, no server</span>
+        <span>·</span>
+        <span>whoever presses Pay keeps the tip</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── What the chain actually checks ──────────────────────────────────────
+   The one number that makes people lean in: a 7,856-byte hash-based signature,
+   verified inside a transaction, for under a cent. */
+export function Signature() {
+  const [ref, n] = useSteps<HTMLDivElement>(4, 560, "-40px");
+  const on = (i: number) => n >= i;
+  return (
+    <div ref={ref}>
+      <svg viewBox={`0 0 ${W} 196`} role="img"
+           aria-label="A 7,856-byte SLH-DSA signature from the key card is passed to Arc's post-quantum precompile at 0x1800...0004, which verifies it on-chain for 433,953 gas, about $0.0087.">
+        <Box x={20} y={44} w={200} h={64} label="Your key card" sub="7,856-byte signature" on={on(1)} />
+        <Arrow x1={226} x2={288} y={76} on={on(2)} />
+        <g opacity={on(2) ? 1 : 0.14} style={ease}>
+          <rect x={293} y={44} width={200} height={64} rx={3} fill="var(--accent-soft)"
+                stroke="var(--accent-line)" strokeWidth={1} />
+          <text x={393} y={68} textAnchor="middle" fill="var(--text)" fontSize={13} fontWeight={600}
+                fontFamily="var(--sans)">Arc, inside the chain</text>
+          <text x={393} y={88} textAnchor="middle" fill="var(--accent)" fontSize={11}
+                fontFamily="var(--mono)">0x1800…0004</text>
+        </g>
+        <Arrow x1={499} x2={561} y={76} on={on(3)} />
+        <Box x={566} y={44} w={174} h={64} label="true" sub="or nothing happens" on={on(3)}
+             fill={on(3) ? "var(--seal)" : undefined} />
+
+        <text x={W / 2} y={160} textAnchor="middle" fill="var(--text)" fontSize={15} fontWeight={600}
+              fontFamily="var(--sans)" opacity={on(4) ? 1 : 0} style={ease}>
+          433,953 gas. $0.0087.
+        </text>
+        <text x={W / 2} y={182} textAnchor="middle" fill="var(--muted)" fontSize={11.5}
+              fontFamily="var(--sans)" opacity={on(4) ? 1 : 0} style={ease}>
+          No other production chain will check this signature for you at any price.
+        </text>
+      </svg>
+    </div>
+  );
+}
