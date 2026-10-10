@@ -322,16 +322,19 @@ describe("How", () => {
     expect(body).toMatch(/only the key card can change it/i);
     expect(body).toMatch(/frozen recipient loses nothing/i);
     // four figures across three chapters (chapter two carries two), and three
-    // check-rows of three links each
-    expect(document.querySelectorAll("svg[role='img']").length).toBe(4);
+    // check-rows of three links each. The figures are HTML scenes now (an SVG
+    // shrank its own type with its frame), so they are <figure>s with a label.
+    expect(document.querySelectorAll("figure[aria-label]").length).toBe(4);
     expect(document.querySelectorAll(".checks a").length).toBe(9);
   });
 
   it("gives every figure an aria-label, since they carry the argument", async () => {
     const { How } = await import("./How");
     renderPage(<How />, { route: "/how?net=testnet" });
-    for (const svg of document.querySelectorAll("svg[role='img']")) {
-      expect((svg.getAttribute("aria-label") ?? "").length).toBeGreaterThan(40);
+    const figures = document.querySelectorAll("figure[aria-label]");
+    expect(figures.length).toBeGreaterThan(0);
+    for (const f of figures) {
+      expect((f.getAttribute("aria-label") ?? "").length).toBeGreaterThan(40);
     }
   });
 

@@ -11,12 +11,13 @@
 // the surprise in one sentence, and the plate beside it proves the surprise.
 
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ServerOff, ShieldCheck, ShieldX } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
 import { EXECUTE, PQ_ACTION, TESTS, fmtGas } from "../measured";
 import { NetLink } from "../ui";
-import { StandingOrder, Timeline, TwoKeys } from "./figures";
+import { StandingOrder, Timeline } from "./figures";
+import { KeysScene, Tilt } from "./spatial";
 
 const MAINNET = NETWORKS.mainnet;
 const live = MAINNET.featuredOrder;
@@ -69,7 +70,16 @@ export function Home() {
             </Link>
           </div>
         </div>
-        <div className="hero-art"><StandingOrder /></div>
+        <div className="hero-art">
+          {/* The live order, floating, with three facts orbiting it at different
+              depths. The chips are decoration of true statements, not data. */}
+          <Tilt className="hero-tilt" max={6}>
+            <StandingOrder />
+          </Tilt>
+          <span className="orbit orbit-a" aria-hidden="true"><ShieldX size={16} /> stolen wallet · refused</span>
+          <span className="orbit orbit-b" aria-hidden="true"><ShieldCheck size={16} /> checked by Arc · {fmtGas(PQ_ACTION.gas)} gas</span>
+          <span className="orbit orbit-c" aria-hidden="true"><ServerOff size={16} /> no server · no keeper</span>
+        </div>
       </section>
 
       {/* the numbers */}
@@ -117,7 +127,7 @@ export function Home() {
                 <NetLink to="/how" className="btn btn-lg">See how it works</NetLink>
               </div>
             </div>
-            <TwoKeys />
+            <KeysScene />
           </div>
         </Rise>
       </section>

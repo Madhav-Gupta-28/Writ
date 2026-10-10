@@ -1,20 +1,19 @@
-// How it works: four pictures, and almost no sentences.
+// How it works, as three scenes you walk through.
 //
-// The shape is Rialto's — a numbered chapter, one claim in the display face,
-// one line under it, a figure that assembles itself, and three links that let
-// the reader check the claim against the chain rather than take it.
-//
-// Text here is deliberately starved. Every sentence that could be a picture
-// became one; everything a sceptic would want to verify became a link. If you
-// are tempted to add a paragraph, add a figure instead.
+// Rebuilt for the spatial design. The previous page put each idea in a small
+// SVG on a centred plate, which scaled its own type down to a few pixels on a
+// wide screen and looked "squeezed". Here each idea gets the full width: a
+// headline, one sentence, and a stage of real, full-size objects at different
+// depths (pages/spatial.tsx). The claims stay checkable: every scene ends in
+// three links to the chain, the standard or the docs.
 
-import { ArrowRight } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowDown } from "lucide-react";
 import { NETWORKS } from "../config";
-import { useNetwork } from "../hooks";
 import { Rise } from "../lib/reveal";
 import { EXECUTE } from "../measured";
-import { NetLink } from "../ui";
-import { Frozen, PaysItself, Signature, Timeline, TwoKeys } from "./figures";
+import { Timeline } from "./figures";
+import { FrozenScene, KeysScene, LiveCall, PaysScene, SignatureStats, Tilt } from "./spatial";
 
 const MAINNET = NETWORKS.mainnet;
 const live = MAINNET.featuredOrder;
@@ -25,7 +24,7 @@ function Checks({ items }: { items: [string, string, string][] }) {
   return (
     <div className="checks">
       {items.map(([k, v, href]) => (
-        <a key={k} href={href} target="_blank" rel="noreferrer">
+        <a key={k} href={href} target={href.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
           <span className="k">{k}</span>
           <span className="v">{v}</span>
         </a>
@@ -34,105 +33,101 @@ function Checks({ items }: { items: [string, string, string][] }) {
   );
 }
 
-export function How() {
-  const net = useNetwork();
+const PORTALS = [
+  { id: "pays", n: "One", t: "It pays itself.", d: "Fund it once. Anyone can press Pay and keep a tip." },
+  { id: "keys", n: "Two", t: "Only the key card can change it.", d: "A stolen wallet cannot redirect a single payment." },
+  { id: "frozen", n: "Three", t: "A frozen recipient loses nothing.", d: "The order parks instead of burning gas." },
+];
+
+function Scene({ id, title, sub, children }: { id: string; title: string; sub: string; children: ReactNode }) {
+  const i = PORTALS.findIndex((p) => p.id === id);
   return (
-    <div className="how">
-      <section className="chapter lede">
-        <Rise>
-          <h1 className="claim">How Writ works, in three pictures.</h1>
-          <p className="sub center">An order that pays itself, a key nobody else holds, and a recipient the issuer froze.</p>
-        </Rise>
+    <section id={id} className="scene">
+      <Rise>
+        <header className="scene-head">
+          <div>
+            <p className="scene-num"><span>{String(i + 1).padStart(2, "0")}</span>{PORTALS[i].n}</p>
+            <h2 className="scene-title">{title}</h2>
+          </div>
+          <p className="scene-sub">{sub}</p>
+        </header>
+        <div className="scene-body">{children}</div>
+      </Rise>
+    </section>
+  );
+}
+
+export function How() {
+  return (
+    <div className="how-spatial">
+      <section className="how-intro">
+        <h1 className="mega">How Writ works</h1>
+        <p className="intro-sub">Three ideas. Each one is something you can check on the chain yourself.</p>
+        <div className="portals">
+          {PORTALS.map((p, i) => (
+            <Tilt key={p.id} className="portal-wrap">
+              <a className="portal" href={`#${p.id}`}>
+                <span className="portal-n">{String(i + 1).padStart(2, "0")}</span>
+                <span className="portal-t">{p.t}</span>
+                <span className="portal-d">{p.d}</span>
+                <span className="portal-go">See it <ArrowDown size={15} /></span>
+              </a>
+            </Tilt>
+          ))}
+        </div>
       </section>
 
-      <section className="chapter">
+      <Scene id="pays" title="It pays itself." sub="Fund it once. When a payment is due, any stranger can press Pay. The order pays the recipient and gives the presser their gas back plus a tip.">
+        <PaysScene />
+        <Timeline />
+        <Checks items={[
+          ["What anyone calls", "execute(id)", `${ex}/address/${addr}`],
+          ["What it costs them", `about ${EXECUTE.usd} (mainnet tx)`, `${ex}/tx/${EXECUTE.tx}`],
+          ["Try it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
+        ]} />
+      </Scene>
+
+      <Scene id="keys" title="Only the key card can change it." sub="The wallet that funded the order cannot redirect it, reprice it or cancel it. There is no function for that. Changing anything needs a separate key, kept offline, that Arc checks itself.">
+        <KeysScene />
+        <SignatureStats />
+        <Checks items={[
+          ["The standard", "NIST FIPS 205", "https://csrc.nist.gov/pubs/fips/205/final"],
+          ["The precompile", "0x1800…0004", "https://docs.arc.io/arc/concepts/post-quantum-security"],
+          ["Try to break it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
+        ]} />
+      </Scene>
+
+      <Scene id="frozen" title="A frozen recipient loses nothing." sub="On Arc, paying an address Circle has frozen reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead. A freeze becomes a state, not an accident.">
+        <FrozenScene />
+        <Checks items={[
+          ["What it reads", "isBlacklisted(address)", `${ex}/address/0x3600000000000000000000000000000000000000`],
+          ["What Arc's docs say", "reverts, consumes gas", "https://docs.arc.io/arc/references/evm-differences"],
+          ["What Writ does", "Quarantined", `${ex}/address/${addr}`],
+        ]} />
+      </Scene>
+
+      <section className="scene scene-close">
         <Rise>
-          <p className="num">One</p>
-          <h2>It pays itself.</h2>
-          <p className="sub">Fund it once. Any stranger can press Pay when a period is due, and keeps the tip.</p>
-          <div className="plate">
-            <PaysItself />
-          </div>
-          <p className="cap"><strong>There is no keeper.</strong></p>
-          <Timeline />
-          <Checks items={[
-            ["What anyone calls", "execute(id)", `${ex}/address/${addr}`],
-            ["What it costs them", `about ${EXECUTE.usd} (mainnet tx)`, `${ex}/tx/${EXECUTE.tx}`],
-            ["Try it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
-          ]} />
-        </Rise>
-      </section>
-
-      <section className="chapter">
-        <Rise>
-          <p className="num">Two</p>
-          <h2>Only the key card can change it.</h2>
-          <p className="sub">The wallet that funded the order cannot redirect it, reprice it or cancel it. There is no function for that.</p>
-          <div className="plate">
-            <TwoKeys />
-          </div>
-          <p className="cap"><strong>A stolen wallet is not a stolen payment.</strong></p>
-
-          <p className="sub" style={{ marginTop: 38 }}>And it is the chain that checks, not our server: a 7,856-byte hash-based signature, verified by Arc itself.</p>
-          <div className="plate">
-            <Signature />
-          </div>
-          <p className="cap">
-            <strong>Bound to the chain, the contract, the order, the action, a nonce and a deadline.</strong> Nothing replays.
-          </p>
-
-          <Checks items={[
-            ["The standard", "NIST FIPS 205", "https://csrc.nist.gov/pubs/fips/205/final"],
-            ["The precompile", "0x1800…0004", "https://docs.arc.io/arc/concepts/post-quantum-security"],
-            ["Try to break it", live !== null ? `order #${live}` : "the live order", `/order/${live}`],
-          ]} />
-        </Rise>
-      </section>
-
-      <section className="chapter">
-        <Rise>
-          <p className="num">Three</p>
-          <h2>A frozen recipient loses nothing.</h2>
-          <p className="sub">On Arc, paying a blocklisted address reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead.</p>
-          <div className="plate">
-            <Frozen />
-          </div>
-          <p className="cap"><strong>A freeze becomes a state, not an accident.</strong></p>
-          <Checks items={[
-            ["What it reads", "isBlacklisted(address)", `${ex}/address/0x3600000000000000000000000000000000000000`],
-            ["What Arc's docs say", "reverts, consumes gas", "https://docs.arc.io/arc/references/evm-differences"],
-            ["What Writ does", "Quarantined", `${ex}/address/${addr}`],
-          ]} />
-        </Rise>
-      </section>
-
-      <section className="chapter lede">
-        <Rise>
-          <h2 className="claim">Four things it does not have.</h2>
-          <div className="cols-4" style={{ marginTop: 28 }}>
+          <h2 className="scene-title center">Four things it does not have.</h2>
+          <div className="nothave">
             {[
               ["No admin", "nobody can pause it"],
               ["No upgrade path", "the code cannot change"],
               ["No custody", "we never hold your money"],
               ["No server", "delete us and it still pays"],
             ].map(([t, d]) => (
-              <div key={t} className="have">
-                <div className="eyebrow">{t}</div>
-                <div className="text-2">{d}</div>
-              </div>
+              <Tilt key={t} className="nothave-wrap" max={5}>
+                <div className="nothave-tile">
+                  <span className="nh-t">{t}</span>
+                  <span className="nh-d">{d}</span>
+                </div>
+              </Tilt>
             ))}
           </div>
-          <div className="hero-cta center" style={{ marginTop: 32, justifyContent: "center" }}>
-            {live !== null && (
-              <NetLink to={`/order/${live}`} className="btn btn-primary btn-lg">
-                Try to hijack the live order <ArrowRight size={18} />
-              </NetLink>
-            )}
+          <div className="close-cta">
+            <LiveCall />
+            <p className="muted">The live order is on Arc mainnet. Hijack attempts are free simulations: nothing is signed and nothing is sent.</p>
           </div>
-          <p className="muted center readable" style={{ margin: "26px auto 0" }}>
-            You are on {net.label}. The live order is on mainnet, and the hijack attempts are free
-            simulations — nothing is signed and nothing is sent.
-          </p>
         </Rise>
       </section>
     </div>
