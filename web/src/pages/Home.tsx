@@ -14,7 +14,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ServerOff, ShieldCheck, ShieldX } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
-import { EXECUTE, PQ_ACTION, TESTS, fmtGas } from "../measured";
+import { EXECUTE, OPEN, PQ_ACTION, SIG_BYTES, TESTS, fmtGas } from "../measured";
 import { NetLink } from "../ui";
 import { StandingOrder, Timeline } from "./figures";
 import { KeysScene, Tilt } from "./spatial";
@@ -27,11 +27,13 @@ const order = live !== null ? `/order/${live}` : "/open";
 // transactions on Arc mainnet (see measured.ts); they used to be pre-launch
 // estimates ($0.0022, 433,953 gas) that no transaction ever produced.
 const ex = MAINNET.explorer;
+// The hero already states the cost of a payment, the signature size and the
+// zero servers, so the band carries the other measured numbers.
 const STATS: { v: string; k: string; src: string; href?: string }[] = [
-  { v: EXECUTE.usd, k: "to make one payment", src: `${fmtGas(EXECUTE.gas)} gas · mainnet tx`, href: `${ex}/tx/${EXECUTE.tx}` },
+  { v: OPEN.usd, k: "to open and fund an order", src: `${fmtGas(OPEN.gas)} gas · mainnet tx`, href: `${ex}/tx/${OPEN.tx}` },
   { v: fmtGas(PQ_ACTION.gas), k: "gas per key card action", src: `${PQ_ACTION.usd} · mainnet tx`, href: `${ex}/tx/${PQ_ACTION.tx}` },
   { v: String(TESTS.total), k: `tests, ${TESTS.live} against live Arc`, src: `passing as of ${TESTS.asOf}` },
-  { v: "0", k: "servers, admins, upgrades", src: "verified source", href: `https://sourcify.dev/#/lookup/${MAINNET.writ}` },
+  { v: "30 days", k: "notice before a wallet can withdraw", src: "and the key card can block it", href: `https://sourcify.dev/#/lookup/${MAINNET.writ}` },
 ];
 
 // The problem, as three things that are true of every recurring payment that
@@ -52,33 +54,54 @@ const NOT: [string, string][] = [
 export function Home() {
   return (
     <div className="landing">
-      {/* 1 — what it is */}
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="pill pill-accent">Live on Arc mainnet</span>
-          <h1>
-            <span>A recurring USDC payment</span>
-            <em>not even your wallet can redirect.</em>
-          </h1>
-          <p className="lead">
-            Moving the money somewhere else needs a post-quantum key card you keep offline.
-            Arc checks it inside the chain. There is no other way in.
-          </p>
-          <div className="hero-cta">
-            <Link to={order} className="btn btn-primary btn-xl">
-              Try to steal a live payment <ArrowRight size={18} />
-            </Link>
+      {/* 1 — what it is: one line across the page, then the live order under it */}
+      <section className="hero2">
+        <div>
+          <div className="hero2-kicker">
+            <span className="live-dot">Live on Arc mainnet</span>
+            <span className="pill">order #{live?.toString() ?? "2"} · paying daily</span>
           </div>
+          <h1>
+            A recurring USDC payment <em>not even your wallet can redirect.</em>
+          </h1>
         </div>
-        <div className="hero-art">
-          {/* The live order, floating, with three facts orbiting it at different
-              depths. The chips are decoration of true statements, not data. */}
-          <Tilt className="hero-tilt" max={6}>
-            <StandingOrder />
-          </Tilt>
-          <span className="orbit orbit-a" aria-hidden="true"><ShieldX size={16} /> stolen wallet · refused</span>
-          <span className="orbit orbit-b" aria-hidden="true"><ShieldCheck size={16} /> checked by Arc · {fmtGas(PQ_ACTION.gas)} gas</span>
-          <span className="orbit orbit-c" aria-hidden="true"><ServerOff size={16} /> no server · no keeper</span>
+        <div className="hero2-grid">
+          <div className="hero2-copy">
+            <p className="lead">
+              Moving the money somewhere else needs a post-quantum key card you keep offline.
+              Arc checks it inside the chain. <strong>There is no other way in.</strong>
+            </p>
+            <div className="hero-cta">
+              <Link to={order} className="btn btn-primary btn-xl">
+                Try to steal a live payment <ArrowRight size={18} />
+              </Link>
+              <NetLink to="/how" className="btn btn-xl">How it works</NetLink>
+            </div>
+            <div className="facts">
+              <div className="fact">
+                <span className="v num">{EXECUTE.usd}</span>
+                <span className="k">for a stranger to press Pay, <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
+              </div>
+              <div className="fact">
+                <span className="v num">{SIG_BYTES}</span>
+                <span className="k">bytes in one key card signature</span>
+              </div>
+              <div className="fact">
+                <span className="v num">0</span>
+                <span className="k">servers, admins or upgrade keys</span>
+              </div>
+            </div>
+          </div>
+          <div className="hero-art">
+            {/* The live order, read off the chain, with three true statements
+                stuck beside it like labels on a wall. */}
+            <Tilt className="hero-tilt" max={3}>
+              <StandingOrder />
+            </Tilt>
+            <span className="orbit orbit-a" aria-hidden="true"><ShieldX size={15} /> stolen wallet · refused</span>
+            <span className="orbit orbit-b" aria-hidden="true"><ShieldCheck size={15} /> checked by Arc · {fmtGas(PQ_ACTION.gas)} gas</span>
+            <span className="orbit orbit-c" aria-hidden="true"><ServerOff size={15} /> no server · no keeper</span>
+          </div>
         </div>
       </section>
 
