@@ -189,7 +189,7 @@ describe("OrderView", () => {
     renderPage(<Routes><Route path="/order/:id" element={<OrderView />} /></Routes>, { route: "/order/2?net=testnet" });
     // Audit finding F1: reclaim does not settle due-but-uncollected periods.
     expect(document.body.textContent).toMatch(/collect before/i);
-    expect(document.body.textContent).toMatch(/came due and nobody collected/i);
+    expect(document.body.textContent).toMatch(/reclaim anything nobody collected/i);
   });
 
   it("treats an order holding less than payment + fee as underfunded", async () => {
@@ -300,18 +300,19 @@ describe("TopUp", () => {
 });
 
 describe("How", () => {
-  it("runs four numbered chapters, each with a figure and three checks", async () => {
+  it("runs three numbered chapters, each with figures and three checks", async () => {
     const { How } = await import("./How");
-    renderPage(<How />, { route: "/how?net=testnet" });
+    renderPage(<How />, { route: "/how" });
     const body = document.body.textContent ?? "";
-    for (const n of ["One", "Two", "Three", "Four"]) expect(body).toContain(n);
+    for (const n of ["One", "Two", "Three"]) expect(body).toContain(n);
+    expect(body).not.toContain("Four pictures");
     expect(body).toMatch(/it pays itself/i);
     expect(body).toMatch(/only the key card can change it/i);
-    expect(body).toMatch(/the chain does the checking/i);
     expect(body).toMatch(/frozen recipient loses nothing/i);
-    // four figures, four check-rows of three links each
+    // four figures across three chapters (chapter two carries two), and three
+    // check-rows of three links each
     expect(document.querySelectorAll("svg[role='img']").length).toBe(4);
-    expect(document.querySelectorAll(".checks a").length).toBe(12);
+    expect(document.querySelectorAll(".checks a").length).toBe(9);
   });
 
   it("gives every figure an aria-label, since they carry the argument", async () => {
