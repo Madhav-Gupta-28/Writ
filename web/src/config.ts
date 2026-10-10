@@ -72,7 +72,7 @@ export const RECLAIM_GRACE = 30n * 86400n;
 export const WALLET_CANCEL_DELAY = 30n * 86400n;
 export const EXECUTOR_TIP = 10_000n; // 0.01 USDC, 6dp
 export const REIMBURSE_OVERHEAD = 30_000n;
-export const EXECUTE_GAS = 125_696n; // measured on Arc testnet, ARCHITECTURE.md §6.1
+export const EXECUTE_GAS = 125_716n; // measured on Arc mainnet, order #2's first payment (see measured.ts)
 
 /**
  * This app is mainnet-only.

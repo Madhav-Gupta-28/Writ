@@ -12,6 +12,7 @@ import { ArrowRight } from "lucide-react";
 import { NETWORKS } from "../config";
 import { useNetwork } from "../hooks";
 import { Rise } from "../lib/reveal";
+import { EXECUTE } from "../measured";
 import { NetLink } from "../ui";
 import { Frozen, PaysItself, Signature, Timeline, TwoKeys } from "./figures";
 
@@ -39,7 +40,7 @@ export function How() {
     <div className="how">
       <section className="chapter lede">
         <Rise>
-          <h1 className="claim">Three pictures. That is the whole thing.</h1>
+          <h1 className="claim">How Writ works, in three pictures.</h1>
           <p className="sub center">An order that pays itself, a key nobody else holds, and a recipient the issuer froze.</p>
         </Rise>
       </section>
@@ -56,7 +57,7 @@ export function How() {
           <Timeline />
           <Checks items={[
             ["What anyone calls", "execute(id)", `${ex}/address/${addr}`],
-            ["What it costs them", "about $0.0022", `${ex}/address/${addr}`],
+            ["What it costs them", `about ${EXECUTE.usd} (mainnet tx)`, `${ex}/tx/${EXECUTE.tx}`],
             ["Try it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
           ]} />
         </Rise>

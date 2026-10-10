@@ -7,6 +7,7 @@ import { duration, formatUsdc, parseUsdc, relative } from "./format";
 import { decryptKeyCard, encryptKeyCard, KeyCardError, parseKeyCardFile, checkPassword } from "./keycard";
 import { costPerPayment, estimateReward, isFunded, paymentsLeft, runway, type Order } from "./order";
 import { suggestedFeeCap } from "../pages/Open";
+import { EXECUTE_GAS, EXECUTOR_TIP, REIMBURSE_OVERHEAD } from "../config";
 
 const A = "0x00000000000000000000000000000000000000a1" as Address;
 
@@ -95,8 +96,10 @@ describe("order arithmetic", () => {
   it("estimates the executor reward with the cap and the 1e12 conversion", () => {
     const r = estimateReward(order(), 20_000_000_000n);
     expect(r.fee).toBe(5_000n);                      // meter+tip ~13,100 capped at 5,000
-    expect(r.gasCost).toBe((125_696n * 20_000_000_000n) / 10n ** 12n);
-    expect(estimateReward(order({ maxExecutorFee: 50_000n }), 20_000_000_000n).fee).toBe(10_000n + 3_113n);
+    expect(r.gasCost).toBe((EXECUTE_GAS * 20_000_000_000n) / 10n ** 12n);
+    // meter: (execute gas + 30k overhead) × 20 gwei / 1e12, plus the 0.01 tip
+    expect(estimateReward(order({ maxExecutorFee: 50_000n }), 20_000_000_000n).fee)
+      .toBe(EXECUTOR_TIP + ((EXECUTE_GAS + REIMBURSE_OVERHEAD) * 20_000_000_000n) / 10n ** 12n);
   });
   it("suggests a fee cap below the amount", () => {
     expect(suggestedFeeCap(10_000n)).toBe(5_000n);

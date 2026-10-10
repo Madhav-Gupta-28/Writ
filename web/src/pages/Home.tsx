@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
+import { EXECUTE, PQ_ACTION, TESTS, fmtGas } from "../measured";
 import { NetLink } from "../ui";
 import { StandingOrder, Timeline, TwoKeys } from "./figures";
 
@@ -21,11 +22,15 @@ const MAINNET = NETWORKS.mainnet;
 const live = MAINNET.featuredOrder;
 const order = live !== null ? `/order/${live}` : "/open";
 
-const STATS: [string, string][] = [
-  ["$0.0022", "to make one payment"],
-  ["433,953", "gas to prove authority"],
-  ["197", "tests, 7 against live Arc"],
-  ["0", "servers, admins, upgrades"],
+// Every stat says where it came from. The first two are receipts of real
+// transactions on Arc mainnet (see measured.ts); they used to be pre-launch
+// estimates ($0.0022, 433,953 gas) that no transaction ever produced.
+const ex = MAINNET.explorer;
+const STATS: { v: string; k: string; src: string; href?: string }[] = [
+  { v: EXECUTE.usd, k: "to make one payment", src: `${fmtGas(EXECUTE.gas)} gas · mainnet tx`, href: `${ex}/tx/${EXECUTE.tx}` },
+  { v: fmtGas(PQ_ACTION.gas), k: "gas per key card action", src: `${PQ_ACTION.usd} · mainnet tx`, href: `${ex}/tx/${PQ_ACTION.tx}` },
+  { v: String(TESTS.total), k: `tests, ${TESTS.live} against live Arc`, src: `passing as of ${TESTS.asOf}` },
+  { v: "0", k: "servers, admins, upgrades", src: "verified source", href: `https://sourcify.dev/#/lookup/${MAINNET.writ}` },
 ];
 
 // The problem, as three things that are true of every recurring payment that
@@ -69,10 +74,13 @@ export function Home() {
 
       {/* the numbers */}
       <section className="statband">
-        {STATS.map(([v, k]) => (
+        {STATS.map(({ v, k, src, href }) => (
           <div key={k} className="stat">
             <div className="v num">{v}</div>
             <div className="eyebrow">{k}</div>
+            <div className="src">
+              {href ? <a href={href} target="_blank" rel="noreferrer">{src} ↗</a> : src}
+            </div>
           </div>
         ))}
       </section>
