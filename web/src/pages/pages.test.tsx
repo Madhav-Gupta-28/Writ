@@ -159,6 +159,18 @@ describe("OpenOrder", () => {
     expect(suggestedFeeCap(100_000_000n)).toBe(50_000n); // ceiling
     expect(suggestedFeeCap(2_000n)).toBe(1_000n); // never >= the payment
   });
+  // The bar used to print "— USDC" in the display face over a dead button
+  // whenever the form was incomplete. A giant placeholder reads as a broken
+  // number, not an empty one.
+  it("names what is missing instead of printing a placeholder total", async () => {
+    const { OpenOrder } = await import("./Open");
+    renderPage(<OpenOrder />, { route: "/open" });
+    const bar = document.querySelector(".make-bar");
+    expect(bar).toBeTruthy();
+    expect(bar?.textContent).not.toMatch(/—\s*USDC/);
+    expect(document.querySelector(".make-bar .mb-big")).toBeNull();
+    expect(bar?.querySelector(".mb-todo")?.textContent).toMatch(/connect a wallet|key card|recipient/i);
+  });
 });
 
 describe("OrderView", () => {

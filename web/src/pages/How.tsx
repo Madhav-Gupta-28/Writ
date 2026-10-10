@@ -127,7 +127,6 @@ export function How() {
                 Try to hijack the live order <ArrowRight size={18} />
               </NetLink>
             )}
-            <NetLink to="/open" className="btn btn-lg">Create an order</NetLink>
           </div>
           <p className="muted center readable" style={{ margin: "26px auto 0" }}>
             You are on {net.label}. The live order is on mainnet, and the hijack attempts are free
