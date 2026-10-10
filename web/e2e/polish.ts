@@ -1,4 +1,4 @@
-// Visual audit: home, /how and /order/2 in real Chrome, scrolled through like a
+// Visual audit: home, /how, /order/2 and /open in real Chrome, scrolled through like a
 // reader (so scroll-reveal figures get their chance to run), then captured. Also
 // a reduced-motion pass and a "first paint" shot of the hero. Flags horizontal
 // overflow and figures still dimmed after scrolling.
@@ -62,7 +62,7 @@ async function main() {
       await page.waitForTimeout(300);
       await page.screenshot({ path: file(`${run.label}-home-firstpaint`) });
 
-      for (const [name, path] of [["home", "/"], ["how", "/how"], ["order2", "/order/2"]] as const) {
+      for (const [name, path] of [["home", "/"], ["how", "/how"], ["order2", "/order/2"], ["open", "/open"]] as const) {
         await page.goto(`${BASE}${path}`);
         await page.waitForTimeout(1500);
         await scrollThrough(page);

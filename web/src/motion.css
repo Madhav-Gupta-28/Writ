@@ -176,3 +176,35 @@ html, body { overflow-x: clip; }
   .result-blocked .attempts li:nth-child(5) { animation-delay: 710ms; }
   .result-blocked .attempts li:nth-child(6) { animation-delay: 800ms; }
 }
+
+/* ------------------------------------------------------ the new order page */
+@media (prefers-reduced-motion: no-preference) {
+  .mk-head .ov-kicker { animation: fade-up 0.6s var(--ease) backwards; }
+  .mk-head .ov-sum { animation: fade-up 0.7s var(--ease) 320ms backwards; }
+
+  /* the steps come up in order */
+  .mk-steps > *, .mk .make-terms > * { animation: fade-up 0.6s var(--ease) backwards; }
+  .mk-steps > :nth-child(1) { animation-delay: 380ms; }
+  .mk-steps > :nth-child(2) { animation-delay: 470ms; }
+  .mk-steps > :nth-child(3) { animation-delay: 560ms; }
+  .mk .make-terms > :nth-child(1) { animation-delay: 560ms; }
+  .mk .make-terms > :nth-child(2) { animation-delay: 650ms; }
+  .mk .make-terms > :nth-child(3) { animation-delay: 740ms; }
+
+  /* the draft is hung beside them */
+  .mk-draft { animation: hang 1s cubic-bezier(0.2, 1.25, 0.35, 1) 300ms backwards; }
+  .mk .make-foot { animation: fade-up 0.6s var(--ease) 900ms backwards; }
+
+  /* as you type, each changed line on the draft flips in like a board */
+  .mk-row .v { animation: flip 0.45s var(--ease) backwards; }
+  .mk .mb-big { animation: flip 0.5s var(--ease) backwards; }
+  @keyframes flip { from { opacity: 0; translate: 0 70%; } }
+  .mk-row .stamp { animation: stamp 0.42s cubic-bezier(0.25, 1.7, 0.45, 1) 1300ms backwards; }
+  .mk-row:nth-of-type(9) .stamp { animation-delay: 1450ms; }
+
+  /* a step that is done gets its check stamped on */
+  .step-n { animation: stamp 0.4s cubic-bezier(0.25, 1.7, 0.45, 1) backwards; }
+
+  .mk .slab { transition: border-color 0.2s, box-shadow 0.2s, translate 0.2s var(--ease); }
+  .mk .slab:focus-within { box-shadow: var(--hard-sm); translate: -2px -2px; }
+}

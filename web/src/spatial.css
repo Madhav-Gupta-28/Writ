@@ -542,3 +542,102 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
   .ov .tab { flex: 0 0 auto; }
   .ov-legend-r { margin-left: 0; }
 }
+
+/* ========================================================= the new order page
+   The form beside its result. Numbered steps on the left, filled in order;
+   on the right the order as it will exist, drawn like the plate on the
+   landing page and filled in as you type, with the sign button at its foot. */
+.mk {
+  display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+  grid-template-areas: "head head" "steps side";
+  gap: clamp(36px, 5vw, 64px) clamp(32px, 5vw, 72px); align-items: start;
+}
+.mk-head { grid-area: head; display: grid; gap: 22px; padding-top: clamp(8px, 2vw, 24px); }
+.mk-head .eyebrow { color: var(--text); }
+.mk-steps { grid-area: steps; display: grid; gap: 18px; min-width: 0; }
+.mk-side { grid-area: side; position: sticky; top: 88px; display: grid; gap: 14px; min-width: 0; }
+
+/* a step: a numbered sign over a plain panel */
+.mk .slab { background: var(--surface-3); border: 1px solid var(--border); overflow: visible; transition: border-color 0.2s; }
+.mk .slab:focus-within { border-color: var(--ink); }
+.mk .slab-head {
+  align-items: center; padding: 16px 22px; background: transparent; border-bottom: 1px solid var(--border);
+  font-family: var(--display); font-size: 1.3rem; font-weight: 800; text-transform: none; letter-spacing: -0.015em; color: var(--text);
+}
+.mk .slab-head .ok, .mk .slab-head .mk-aside {
+  font-family: var(--mono); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em;
+}
+.mk .slab-head .ok { color: var(--text); }
+.mk .slab-head .mk-aside { color: var(--muted); }
+.mk .slab-body { padding: 20px 22px 22px; }
+.mk-step-t { display: inline-flex; align-items: center; gap: 14px; }
+.step-n {
+  display: inline-grid; place-items: center; min-width: 38px; height: 30px; padding: 0 7px;
+  font-family: var(--display); font-size: 0.95rem; font-weight: 800; letter-spacing: 0;
+  color: var(--ink); background: var(--accent); border: 1.5px solid var(--ink); border-radius: 4px;
+}
+.mk-step[data-done="true"] .step-n, .ready-strip .step-n { background: var(--ink); color: var(--surface-3); }
+.mk .make-terms:disabled .slab-head { color: var(--muted); }
+.mk .make-terms:disabled .step-n { background: var(--bg-2); border-color: var(--border-strong); color: var(--muted); }
+
+.mk .ready-strip {
+  gap: 12px 32px; padding: 14px 22px; background: var(--surface-3); border: 1px solid var(--border);
+  font-family: var(--display); font-weight: 750; font-size: 1.1rem; color: var(--text);
+}
+.mk .ready-strip span { gap: 12px; }
+.mk .ready-strip .step-n { min-width: 30px; height: 26px; }
+.mk .ready-strip .mono { font-family: var(--mono); font-size: 0.85rem; font-weight: 500; }
+
+.mk .field-label { color: var(--text); }
+.mk input, .mk select { padding: 13px 14px; font-size: 1rem; }
+.mk .choice { padding: 15px 16px; border-color: var(--border-strong); }
+.mk .choice:has(input:checked) { border: 1.5px solid var(--ink); background: var(--accent-soft); }
+
+/* the draft: the same object as the landing plate */
+.mk-draft { background: var(--surface-3); border: 1.5px solid var(--ink); border-radius: var(--radius); box-shadow: 10px 10px 0 var(--ink); overflow: hidden; }
+.mk-draft-head {
+  display: flex; justify-content: space-between; gap: 12px; padding: 14px 22px;
+  background: var(--ink); color: var(--surface-3);
+  font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em;
+}
+.mk-draft-head span:last-child { color: #d6d2ca; }
+.mk-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 22px; border-bottom: 1px solid var(--border); overflow: hidden; }
+.mk-row .k { color: var(--muted); font-size: 0.9rem; }
+.mk-row .v { font-family: var(--mono); font-size: 0.95rem; text-align: right; font-variant-numeric: tabular-nums; }
+.mk-row .v[data-unset="true"] { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.mk-row .stamp {
+  background: var(--seal); color: var(--seal-ink); padding: 3px 9px; border-radius: 3px; transform: rotate(-2deg);
+  font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em;
+}
+.mk-row-card { background: var(--accent); border-bottom: 0; }
+.mk-row-card .k { color: var(--ink); font-weight: 600; }
+.mk-row-card .v { color: var(--ink); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.mk-rule { padding: 18px 22px 8px; border-bottom: 1.5px solid var(--ink); font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text); }
+
+.mk .make-bar {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin: 0; padding: 22px;
+  border: 0; border-top: 1.5px solid var(--ink); border-radius: 0; background: var(--surface-3);
+}
+.mk .mb-k { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.mk .mb-big { margin-top: 4px; font-family: var(--display); font-weight: 850; font-stretch: 106%; font-size: clamp(2.2rem, 3.4vw, 3rem); letter-spacing: -0.03em; line-height: 1; color: var(--accent-display); }
+.mk .mb-todo { font-family: var(--display); font-weight: 750; font-size: 1.2rem; letter-spacing: -0.01em; color: var(--text); }
+.mk .mb-act { justify-items: stretch; }
+.mk .mb-act .btn-xl { width: 100%; }
+.mk .make-foot { text-align: left; }
+
+/* after opening */
+.mk-done { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "body"; }
+.mk-done-body { grid-area: body; display: grid; gap: 18px; max-width: 640px; }
+.mk-done-body .done-line { font-family: var(--display); font-size: 1.4rem; font-weight: 800; color: var(--text); }
+
+@media (max-width: 960px) {
+  .mk { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "steps" "side"; }
+  .mk-side { position: static; }
+}
+@media (max-width: 560px) {
+  .mk .slab-head { padding: 14px 16px; font-size: 1.12rem; flex-wrap: wrap; }
+  .mk .slab-body { padding: 16px; }
+  .mk-draft { box-shadow: var(--hard); }
+  .mk-row, .mk-draft-head, .mk-rule { padding-inline: 16px; }
+  .mk .make-bar { padding: 18px 16px; }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { bytesToHex, isAddress, keccak256, parseAbi, toHex, zeroHash, type Address } from "viem";
 import { writAbi } from "../../../shared/abi/writ.ts";
@@ -6,12 +6,13 @@ import { openAuthNonce, type Terms } from "../../../shared/auth.ts";
 import { USDC } from "../config";
 import { useAction, useClient, useNetwork } from "../hooks";
 import { KeyCardCreator } from "../keycardUi";
-import { formatDate, formatUsdc, INTERVALS, parseUsdc, short, usdc } from "../lib/format";
+import { formatDate, formatDay, formatUsdc, INTERVALS, parseUsdc, short, usdc } from "../lib/format";
 import type { KeyCard } from "../lib/keycard";
 import { chainNow } from "../lib/tx";
 import { events, sendWrit, signReceiveAuth } from "../lib/write";
-import { ArrowRight, ChevronDown, CircleCheck, KeyRound, PartyPopper } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleCheck, KeyRound, PartyPopper } from "lucide-react";
 import { Field, KEY_CARD_LINE, NetLink, Note, StatusLine, WalletGate } from "../ui";
+import { Words } from "../lib/motion";
 
 const erc20 = parseAbi(["function balanceOf(address) view returns (uint256)"]);
 
@@ -32,6 +33,37 @@ export function suggestedFeeCap(amount: bigint): bigint {
   if (cap > 50_000n) cap = 50_000n;
   if (cap >= amount) cap = amount / 2n;
   return cap;
+}
+
+/* The page is a form beside its result: numbered steps on the left (they are
+   a real sequence, filled in order), and on the right the order itself, drawn
+   as it will exist on the chain and filled in as you type. The closing bar
+   that used to sit under the form lives at the foot of that draft. */
+
+/** One numbered step. Its number turns into a check once the step is satisfied. */
+function Step({ n, title, done, aside, children }: { n: string; title: string; done: boolean; aside?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="slab mk-step" data-done={done}>
+      <div className="slab-head">
+        <span className="mk-step-t">
+          <span className="step-n" key={done ? "done" : "todo"} aria-hidden="true">{done ? <Check size={15} strokeWidth={3} /> : n}</span>
+          {title}
+        </span>
+        {aside}
+      </div>
+      <div className="slab-body">{children}</div>
+    </section>
+  );
+}
+
+/** A line on the draft. The value is keyed so a change flips it in. */
+function DraftRow({ k, v }: { k: string; v: string | null }) {
+  return (
+    <div className="mk-row">
+      <span className="k">{k}</span>
+      <span className="v" key={v ?? ""} data-unset={v === null}>{v ?? "not set"}</span>
+    </div>
+  );
 }
 
 export function OpenOrder() {
@@ -130,12 +162,18 @@ export function OpenOrder() {
 
   if (openedId !== null) {
     return (
-      <div className="card stack" style={{ maxWidth: 720 }}>
-        <div className="done-line" style={{ fontSize: "1.1rem" }}><PartyPopper size={22} />Order #{openedId.toString()} is live</div>
-        <StatusLine status={action.status} net={net} />
-        <p className="text-2">First payment due {formatDate(openedStart)}. From then on anyone can press Pay and earn the tip.</p>
-        <Note icon={KeyRound} kind="warn">Keep the key card file and its password safe. They are the only way to change or cancel this order.</Note>
-        <div><NetLink to={`/order/${openedId}`} className="btn btn-primary btn-lg">Go to order #{openedId.toString()} <ArrowRight size={18} /></NetLink></div>
+      <div className="mk mk-done">
+        <header className="mk-head">
+          <div className="ov-kicker"><span className="live-dot">Live on {net.label}</span></div>
+          <h1 className="ov-h"><Words text={`Order #${openedId.toString()} is live.`} step={80} /></h1>
+          <p className="ov-sum">First payment due {formatDate(openedStart)}. From then on anyone can press Pay and earn the tip.</p>
+        </header>
+        <div className="mk-done-body">
+          <div className="done-line"><PartyPopper size={22} />Opened and funded</div>
+          <StatusLine status={action.status} net={net} />
+          <Note icon={KeyRound} kind="warn">Keep the key card file and its password safe. They are the only way to change or cancel this order.</Note>
+          <div><NetLink to={`/order/${openedId}`} className="btn btn-primary btn-xl">Go to order #{openedId.toString()} <ArrowRight size={18} /></NetLink></div>
+        </div>
       </div>
     );
   }
@@ -151,43 +189,38 @@ export function OpenOrder() {
     : !calc.amt ? "Add an amount per payment."
     : Object.values(calc.errors).find((e) => e) ?? "Fill in the terms above.";
 
+  const whoDone = isAddress(beneficiary) && !!calc.amt && !calc.errors.beneficiary && !calc.errors.amount;
+  const whenDone = calc.payments > 0n && !calc.errors.first && !calc.errors.end;
+  const fundDone = !!calc.funding && !calc.errors.funding && !calc.errors.cap;
+
   return (
-    <div className="make">
-      <header className="make-head">
-        <h1>New order.</h1>
-        <p>Say who gets paid, how much and how often. You sign once.</p>
+    <div className="mk">
+      <header className="mk-head">
+        <div className="ov-kicker"><span className="eyebrow">{net.label} · standing order</span></div>
+        <h1 className="ov-h"><Words text="New order." step={90} /></h1>
+        <p className="ov-sum">Say who gets paid, how much and how often. You sign once, and from then on it pays itself.</p>
       </header>
 
-      {/* Two things have to exist before the terms mean anything. While they
-          are outstanding each needs room for its own controls; once they are
-          satisfied they are facts, not steps, and a full slab for a fact is a
-          box of air. So they collapse into one strip and give the height back
-          to the form. */}
-      {walletOk && card ? (
-        <div className="ready-strip">
-          <span><CircleCheck size={15} />Wallet <span className="mono">{short(address ?? "")}</span></span>
-          <span><CircleCheck size={15} />Key card ready</span>
-        </div>
-      ) : (
-        <>
-          <section className="slab">
-            <div className="slab-head">
-              <span>Your wallet</span>
-              <span className={walletOk ? "ok" : ""}>{walletOk ? short(address ?? "") : "not connected"}</span>
-            </div>
-            <div className="slab-body">
+      <div className="mk-steps">
+        {/* Two things have to exist before the terms mean anything. Once they
+            are satisfied they are facts, not steps, so they collapse into one
+            strip and give the height back to the form. */}
+        {walletOk && card ? (
+          <div className="ready-strip">
+            <span><span className="step-n" aria-hidden="true"><Check size={15} strokeWidth={3} /></span>Wallet <span className="mono">{short(address ?? "")}</span></span>
+            <span><span className="step-n" aria-hidden="true"><Check size={15} strokeWidth={3} /></span>Key card ready</span>
+          </div>
+        ) : (
+          <>
+            <Step n="01" title="Your wallet" done={walletOk}
+                  aside={<span className={walletOk ? "ok" : "mk-aside"}>{walletOk ? short(address ?? "") : "not connected"}</span>}>
               <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
                 <p className="done-line"><CircleCheck size={17} />Connected to {net.label}</p>
               </WalletGate>
-            </div>
-          </section>
+            </Step>
 
-          <section className="slab">
-            <div className="slab-head">
-              <span>Your key card</span>
-              <span className={card ? "ok" : ""}>{card ? "ready" : "not yet"}</span>
-            </div>
-            <div className="slab-body">
+            <Step n="02" title="Your key card" done={!!card}
+                  aside={<span className={card ? "ok" : "mk-aside"}>{card ? "ready" : "not yet"}</span>}>
               {!card && (
                 <p className="slab-why">
                   <strong>{KEY_CARD_LINE}</strong> The only thing that can ever redirect this
@@ -195,15 +228,12 @@ export function OpenOrder() {
                 </p>
               )}
               <KeyCardCreator net={net} onReady={setCard} />
-            </div>
-          </section>
-        </>
-      )}
+            </Step>
+          </>
+        )}
 
-      <fieldset disabled={!card || action.busy} className="make-terms">
-        <section className="slab">
-          <div className="slab-head"><span>Who gets paid</span></div>
-          <div className="slab-body">
+        <fieldset disabled={!card || action.busy} className="make-terms">
+          <Step n="03" title="Who gets paid" done={whoDone}>
             <Field label="Recipient address" error={calc.errors.beneficiary}>
               <input className="mono" placeholder="0x…" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value.trim())} spellCheck={false} />
             </Field>
@@ -217,12 +247,9 @@ export function OpenOrder() {
                 </select>
               </Field>
             </div>
-          </div>
-        </section>
+          </Step>
 
-        <section className="slab">
-          <div className="slab-head"><span>How long</span></div>
-          <div className="slab-body">
+          <Step n="04" title="How long" done={whenDone}>
             <div className="cols-2">
               <Field label="First payment" error={calc.errors.first}>
                 <select value={asap ? "asap" : "at"} onChange={(e) => setAsap(e.target.value === "asap")}>
@@ -235,15 +262,10 @@ export function OpenOrder() {
                 <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
               </Field>
             </div>
-          </div>
-        </section>
+          </Step>
 
-        <section className="slab">
-          <div className="slab-head">
-            <span>How much to put in</span>
-            {calc.payments > 0n && <span>{calc.payments.toString()} payments</span>}
-          </div>
-          <div className="slab-body">
+          <Step n="05" title="How much to put in" done={fundDone}
+                aside={calc.payments > 0n ? <span className="mk-aside">{calc.payments.toString()} payments</span> : undefined}>
             <div className="choices">
               <label className="choice">
                 <input type="radio" checked={fundMode === "all"} onChange={() => setFundMode("all")} />
@@ -271,40 +293,54 @@ export function OpenOrder() {
                 </Field>
               </div>
             </details>
-          </div>
-        </section>
-      </fieldset>
-
-      {/* Rialto's closing bar: the whole decision on one line, and the button
-          that commits to it. A sidebar competed with the form for attention
-          and repeated what the fields already said. */}
-      {/* The bar used to render "— USDC" in the display face whenever the form
-          was incomplete, over a dead button. A giant placeholder reads as a
-          broken number rather than as an empty one, so until there is a figure
-          worth printing the bar says what is still missing instead. */}
-      <div className="make-bar">
-        <div className="mb-sum">
-          {calc.funding ? (
-            <>
-              <div className="mb-big num">{usdc(calc.funding)}</div>
-              <div className="mb-line">
-                pays <strong>{usdc(calc.amt!)}</strong> {intervalText} to{" "}
-                <span className="mono">{short(beneficiary)}</span>,{" "}
-                {asap ? "starting in about 2 min" : `starting ${formatDate(calc.startAt)}`}
-              </div>
-            </>
-          ) : (
-            <div className="mb-todo">{missing}</div>
-          )}
-        </div>
-        <div className="mb-act">
-          <WalletGate net={net}>
-            <button className="btn btn-primary btn-xl" disabled={!calc.ready || action.busy} onClick={submit}>Sign and create order</button>
-          </WalletGate>
-          <StatusLine status={action.status} net={net} />
-        </div>
+          </Step>
+        </fieldset>
       </div>
-      <p className="make-foot">One signature, then one transaction. Anything left over comes back to you.</p>
+
+      {/* The order as it will exist, filled in as the form is. The closing bar
+          sits at its foot: until there is a figure worth printing it says
+          what is still missing, never a placeholder total like "— USDC". */}
+      <aside className="mk-side">
+        <div className="mk-draft">
+          <div className="mk-draft-head"><span>Standing order · draft</span><span>{net.label}</span></div>
+          <DraftRow k="pays" v={calc.amt ? usdc(calc.amt) : null} />
+          <DraftRow k="every" v={intervalText ?? null} />
+          <DraftRow k="to" v={isAddress(beneficiary) ? short(beneficiary) : null} />
+          <DraftRow k="first payment" v={asap ? "in about 2 min" : calc.errors.first ? null : formatDate(calc.startAt)} />
+          <DraftRow k="last by" v={calc.errors.end || Number.isNaN(Number(calc.endTime)) ? null : formatDay(calc.endTime)} />
+          <DraftRow k="payments" v={calc.payments > 0n ? calc.payments.toString() : null} />
+          <DraftRow k="tip up to" v={calc.cap !== null && calc.amt ? usdc(calc.cap) : null} />
+          <div className="mk-rule">who may change it</div>
+          <div className="mk-row"><span className="k">the wallet that funds it</span><span className="stamp">refused</span></div>
+          <div className="mk-row"><span className="k">us, the authors</span><span className="stamp">refused</span></div>
+          <div className="mk-row mk-row-card"><span className="k">your key card</span><span className="v" key={card ? "y" : "n"}>{card ? "the only thing that can" : "make it in step 02"}</span></div>
+
+          <div className="make-bar">
+            <div className="mb-sum">
+              {calc.funding ? (
+                <>
+                  <div className="mb-k">you put in</div>
+                  <div className="mb-big num" key={calc.funding.toString()}>{usdc(calc.funding)}</div>
+                  <div className="mb-line">
+                    pays <strong>{usdc(calc.amt!)}</strong> {intervalText} to{" "}
+                    <span className="mono">{short(beneficiary)}</span>,{" "}
+                    {asap ? "starting in about 2 min" : `starting ${formatDate(calc.startAt)}`}
+                  </div>
+                </>
+              ) : (
+                <div className="mb-todo">{missing}</div>
+              )}
+            </div>
+            <div className="mb-act">
+              <WalletGate net={net}>
+                <button className="btn btn-primary btn-xl" disabled={!calc.ready || action.busy} onClick={submit}>Sign and create order <ArrowRight size={18} /></button>
+              </WalletGate>
+              <StatusLine status={action.status} net={net} />
+            </div>
+          </div>
+        </div>
+        <p className="make-foot">One signature, then one transaction. Anything left over comes back to you.</p>
+      </aside>
     </div>
   );
 }
