@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useParams } from "react-router-dom";
 import { useAccount } from "wagmi";
 import type { Address } from "viem";
@@ -17,84 +17,107 @@ import { KeyCardPanel } from "./KeyCardPanel";
 import { PayerPanel } from "./PayerPanel";
 import { countdown, useLiveNow } from "../lib/clock";
 import { TopUp } from "./TopUp";
+import { CountUp, Words } from "../lib/motion";
 
 type Tab = "funds" | "keycard" | "payer" | "details";
 
-function OrderHero({ net, order, now }: { net: Network; order: Order; now: bigint }) {
-  const rw = runway(order);
+/* The order page, set like the rest of the site: a big title with the pay sign
+   beside it, then a black board across the full width with the numbers and
+   every payment as a bar, then the controls. The facts are the same ones the
+   old two-slab layout showed; only where they sit has changed. */
+
+function OrderTitle({ net, order, now }: { net: Network; order: Order; now: bigint }) {
   const live = order.state === "Active" || order.state === "Quarantined";
+  const rw = runway(order);
   const total = order.periodsPaid + Number(live ? paymentsLeft(order) : 0n);
-  const pct = total > 0 ? Math.round((order.periodsPaid / total) * 100) : 100;
   return (
-    <>
-      <p className="order-sum">
+    <div className="ov-title">
+      <div className="ov-kicker">
+        {order.state === "Active" ? <span className="live-dot">Live on {net.label}</span> : <span className="eyebrow">{net.label}</span>}
+        <StateBadge state={order.state} />
+      </div>
+      <h1 className="ov-h"><Words text={`Order #${order.id.toString()}`} step={90} /></h1>
+      <p className="ov-sum">
         Pays <strong>{usdc(order.amountPerPeriod)}</strong> to <Addr net={net} a={order.beneficiary} />{" "}
-        {intervalLabel(order.periodSeconds)}
+        {intervalLabel(order.periodSeconds)}, until <strong>{formatDay(order.endTime)}</strong>.
       </p>
-
-      {/* Rialto's request shape: label on the left, value on the right, a
-          hairline between. What was here before was a banner, a progress bar,
-          three metric tiles and a four-line paragraph — the same facts, spread
-          over four visual languages. */}
-      <div className="slabs">
-        <section className="slab">
-          <div className="slab-head"><span>Terms</span></div>
-          <dl className="rows">
-            <div><dt>Pays</dt><dd className="mono">{usdc(order.amountPerPeriod)}</dd></div>
-            <div><dt>Every</dt><dd className="mono">{duration(order.periodSeconds)}</dd></div>
-            <div><dt>To</dt><dd className="mono"><Addr net={net} a={order.beneficiary} /></dd></div>
-            <div><dt>Ends</dt><dd className="mono">{formatDay(order.endTime)}</dd></div>
-          </dl>
-        </section>
-
-        <section className="slab">
-          <div className="slab-head">
-            <span>Progress</span>
-            <span className="num">{order.periodsPaid} of {total}</span>
-          </div>
-          <div className="slab-bar">
-            <div className="progress" role="progressbar" aria-valuenow={order.periodsPaid} aria-valuemin={0} aria-valuemax={total}>
-              <span style={{ width: `${Math.max(pct, order.periodsPaid > 0 ? 3 : 0)}%` }} />
-            </div>
-          </div>
-          <dl className="rows">
-            <div><dt>Balance</dt><dd className="mono">{formatUsdc(order.balance)} USDC</dd></div>
-            <div>
-              <dt>Covers</dt>
-              <dd className={!live ? "mono" : rw.fullyFunded ? "mono" : "mono warnv"}>
-                {!live ? "nothing further"
-                  : rw.needed === 0n ? "no payments left"
-                  : rw.fullyFunded ? "every remaining payment"
-                  : rw.funded === 0n ? "not the next one"
-                  : `${rw.funded} more, to ${formatDay(rw.lastFundedAt!)}`}
-              </dd>
-            </div>
-            <div><dt>Left to pay</dt><dd className="mono">{live ? rw.needed.toString() : "0"}</dd></div>
-          </dl>
-        </section>
+      <div className="ov-tags">
+        <span className="ov-tag">funded by <span className="mono">{short(order.payer)}</span></span>
+        <span className="ov-tag">tip up to <span className="mono">{usdc(order.maxExecutorFee)}</span></span>
+        <span className="ov-tag ov-tag-ink"><KeyRound size={14} /> changes need the key card</span>
       </div>
 
-      {live && !rw.fullyFunded && rw.needed > 0n && (
-        <Note icon={ShieldAlert} kind="warn">{usdc(rw.shortfall)} more covers every remaining payment. Anyone can add it.</Note>
-      )}
-      {order.state === "Quarantined" && (
-        <Note icon={Snowflake} kind="ice">Circle froze the recipient, so this order paused itself rather than failing. Nothing is lost — the key card can pick a new recipient or refund.</Note>
-      )}
-      {live && order.cancelReadyAt > 0n && (
-        <Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it is final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note>
-      )}
-      {/* Writ does not settle unpaid periods before a reclaim: 30 days after
-          the end date the funding wallet can take back whatever is left,
-          including money for payments that came due and were never collected.
-          Anyone can press Pay, so it is avoidable — but only if someone knows,
-          so it is stated here rather than left in the spec. */}
-      {live && order.periodsPaid < total && (
-        <Note icon={Clock} kind="warn">
-          Collect before {formatDay(reclaimOpensAt(order))} — after that the funding wallet
-          can reclaim anything nobody collected.
-        </Note>
-      )}
-    </>
+      <div className="ov-notes">
+        {live && !rw.fullyFunded && rw.needed > 0n && (
+          <Note icon={ShieldAlert} kind="warn">{usdc(rw.shortfall)} more covers every remaining payment. Anyone can add it.</Note>
+        )}
+        {order.state === "Quarantined" && (
+          <Note icon={Snowflake} kind="ice">Circle froze the recipient, so this order paused itself rather than failing. Nothing is lost — the key card can pick a new recipient or refund.</Note>
+        )}
+        {live && order.cancelReadyAt > 0n && (
+          <Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it is final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note>
+        )}
+        {/* Writ does not settle unpaid periods before a reclaim: 30 days after
+            the end date the funding wallet can take back whatever is left,
+            including money for payments that came due and were never collected.
+            Anyone can press Pay, so it is avoidable — but only if someone knows,
+            so it is stated here rather than left in the spec. */}
+        {live && order.periodsPaid < total && (
+          <Note icon={Clock} kind="warn">
+            Collect before {formatDay(reclaimOpensAt(order))} — after that the funding wallet
+            can reclaim anything nobody collected.
+          </Note>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Bars are drawn one per payment up to this many; past it, a single bar. */
+const MAX_BARS = 120;
+
+function OrderBoard({ order, now }: { order: Order; now: bigint }) {
+  const rw = runway(order);
+  const live = order.state === "Active" || order.state === "Quarantined";
+  const paid = order.periodsPaid;
+  const total = paid + Number(live ? paymentsLeft(order) : 0n);
+  const due = order.state === "Active" && now >= order.nextDueAt;
+  const pct = total > 0 ? Math.round((paid / total) * 100) : 100;
+  const covers = !live ? "nothing further"
+    : rw.needed === 0n ? "no payments left"
+    : rw.fullyFunded ? "every payment left"
+    : rw.funded === 0n ? "not the next one"
+    : `${rw.funded} more, to ${formatDay(rw.lastFundedAt!)}`;
+
+  return (
+    <section className="ov-board" aria-label="Payments">
+      <div className="ov-board-in">
+        <dl className="ov-stats">
+          <div><dt>Paid</dt><dd className="num"><CountUp value={`${paid} of ${total}`} /></dd></div>
+          <div><dt>Balance</dt><dd className="num"><CountUp value={`${formatUsdc(order.balance)} USDC`} /></dd></div>
+          <div><dt>Left to pay</dt><dd className="num"><CountUp value={live ? rw.needed.toString() : "0"} /></dd></div>
+          <div><dt>Balance covers</dt><dd className={live && !rw.fullyFunded && rw.needed > 0n ? "warnv" : undefined}>{covers}</dd></div>
+          <div><dt>Ends</dt><dd>{formatDay(order.endTime)}</dd></div>
+        </dl>
+        {total > 0 && total <= MAX_BARS ? (
+          <div className="ov-bars" role="img" aria-label={`${paid} of ${total} payments made${due ? ", and the next one is due now" : ""}.`}>
+            {Array.from({ length: total }, (_, i) => (
+              <span key={i} className="tl-bar" style={{ "--i": i } as CSSProperties} data-state={i < paid ? "paid" : i === paid && due ? "due" : "later"} />
+            ))}
+          </div>
+        ) : (
+          <div className="ov-progress" role="progressbar" aria-valuenow={paid} aria-valuemin={0} aria-valuemax={total}>
+            <span style={{ width: `${Math.max(pct, paid > 0 ? 2 : 0)}%` }} />
+          </div>
+        )}
+        <div className="ov-legend">
+          <span><i data-k="paid" /> paid</span>
+          {due && <span><i data-k="due" /> due now, anyone can collect it</span>}
+          <span><i data-k="later" /> still to come</span>
+          <span className="ov-legend-r">{duration(order.periodSeconds)} apart</span>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -239,22 +262,12 @@ function Details({ net, order }: { net: Network; order: Order }) {
 
 function SkeletonOrder() {
   return (
-    <div aria-busy="true" aria-label="Loading order">
-      <div className="order-head"><Skel w={180} h={32} /><Skel w={80} h={24} /></div>
-      <div className="order-layout">
-        <div className="stack">
-          <section className="card order-hero stack">
-            <Skel w="80%" h={30} />
-            <Skel h={10} style={{ marginTop: 18 }} />
-            <div className="metrics" style={{ marginTop: 10 }}>{[0, 1, 2].map((i) => <div key={i} className="metric"><Skel w="50%" h={12} /><Skel w="70%" h={28} style={{ marginTop: 10 }} /></div>)}</div>
-          </section>
-          <Skel h={48} />
-        </div>
-        <div className="side-col">
-          <section className="card pay-card"><Skel w="40%" h={12} /><Skel w="80%" h={40} /><Skel h={56} /></section>
-          <section className="card hijack-card"><Skel w="70%" h={18} /><Skel h={44} /></section>
-        </div>
-      </div>
+    <div className="ov" aria-busy="true" aria-label="Loading order">
+      <section className="ov-top">
+        <div className="ov-title"><Skel w={160} h={22} /><Skel w="60%" h={84} /><Skel w="90%" h={26} /></div>
+        <section className="card pay-card"><Skel w="40%" h={12} /><Skel w="80%" h={56} /><Skel h={56} /></section>
+      </section>
+      <section className="ov-board"><div className="ov-board-in"><Skel h={64} /><Skel h={56} style={{ marginTop: 20 }} /></div></section>
     </div>
   );
 }
@@ -287,39 +300,40 @@ export function OrderView({ initialTab }: { initialTab?: Tab }) {
   ];
 
   return (
-    <div>
-      <div className="order-head">
-        <h1>Order #{order.id.toString()}</h1>
-        <StateBadge state={order.state} />
-        
-      </div>
-      <div className="order-layout">
-        <div className="area-hero"><OrderHero net={net} order={order} now={now} /></div>
-          <div className="area-tabs">
-            <Tabs tabs={tabs} value={tab} onChange={setTab} />
-            <div className="tab-panel" role="tabpanel">
-              {tab === "funds" && (
-                <div className="card panel-grid">
-                  <div className="stack">
-                    <h3 className="row"><CirclePlus size={18} /> Add money</h3>
-                    <p className="text-2 readable">Anyone can top up. The money can only reach the recipient, whoever presses Pay, or the wallet that funded it.</p>
-                  </div>
-                  <TopUp net={net} client={client} order={order} suggested={runway(order).shortfall} onDone={refetch} />
+    <div className="ov">
+      <section className="ov-top">
+        <OrderTitle net={net} order={order} now={now} />
+        <PayCard net={net} order={order} now={now} gasPrice={gasPrice} refetch={refetch} />
+      </section>
+
+      <OrderBoard order={order} now={now} />
+
+      <section className="ov-lower">
+        <div className="area-tabs">
+          <h2 className="ov-h2">Manage this order</h2>
+          <Tabs tabs={tabs} value={tab} onChange={setTab} />
+          <div className="tab-panel" role="tabpanel" key={tab}>
+            {tab === "funds" && (
+              <div className="card panel-grid">
+                <div className="stack">
+                  <h3 className="row"><CirclePlus size={18} /> Add money</h3>
+                  <p className="text-2 readable">Anyone can top up. The money can only reach the recipient, whoever presses Pay, or the wallet that funded it.</p>
                 </div>
-              )}
-              {tab === "keycard" && (
-                <KeyCardPanel net={net} order={order} now={now} refetch={refetch} />
-              )}
-              {tab === "payer" && <PayerPanel net={net} client={client} order={order} now={now} refetch={refetch} />}
-              {tab === "details" && <Details net={net} order={order} />}
-            </div>
+                <TopUp net={net} client={client} order={order} suggested={runway(order).shortfall} onDone={refetch} />
+              </div>
+            )}
+            {tab === "keycard" && (
+              <KeyCardPanel net={net} order={order} now={now} refetch={refetch} />
+            )}
+            {tab === "payer" && <PayerPanel net={net} client={client} order={order} now={now} refetch={refetch} />}
+            {tab === "details" && <Details net={net} order={order} />}
           </div>
-        <aside className="side-col area-side">
-          <PayCard net={net} order={order} now={now} gasPrice={gasPrice} refetch={refetch} />
+        </div>
+        <aside className="ov-side">
           <HijackCard net={net} order={order} now={now} />
           {order.state === "Active" && <p className="muted row" style={{ fontSize: "0.85rem", gap: 6 }}><CircleCheck size={14} /> Live from the chain, refreshed every 10 seconds.</p>}
         </aside>
-      </div>
+      </section>
     </div>
   );
 }

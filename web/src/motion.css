@@ -136,3 +136,43 @@ html, body { overflow-x: clip; }
   .wp-line .stamp { transition: rotate 0.2s var(--ease), scale 0.2s var(--ease); }
   .wp-line:hover .stamp { rotate: 3deg; scale: 1.08; }
 }
+
+/* --------------------------------------------------------- the order page */
+@media (prefers-reduced-motion: no-preference) {
+  .ov-kicker { animation: fade-up 0.6s var(--ease) backwards; }
+  .ov-sum { animation: fade-up 0.7s var(--ease) 380ms backwards; }
+  .ov-tags { animation: fade-up 0.7s var(--ease) 500ms backwards; }
+  .ov-notes { animation: fade-up 0.7s var(--ease) 620ms backwards; }
+
+  /* the pay sign is hung beside the title, like the plate on the landing page */
+  .ov .pay-card { animation: hang 1s cubic-bezier(0.2, 1.25, 0.35, 1) 300ms backwards; }
+
+  /* the board: figures come up in turn, then every payment rises as a bar */
+  .ov-stats > div { animation: fade-up 0.6s var(--ease) backwards; }
+  .ov-stats > :nth-child(1) { animation-delay: 450ms; }
+  .ov-stats > :nth-child(2) { animation-delay: 530ms; }
+  .ov-stats > :nth-child(3) { animation-delay: 610ms; }
+  .ov-stats > :nth-child(4) { animation-delay: 690ms; }
+  .ov-stats > :nth-child(5) { animation-delay: 770ms; }
+  .ov-bars .tl-bar { animation: bar-up 0.55s var(--ease) backwards; animation-delay: calc(min(var(--i, 0) * 28ms, 1400ms) + 700ms); }
+  .ov-progress > span { animation: grow 1.1s var(--ease) 700ms backwards; }
+  @keyframes grow { from { scale: 0 1; } }
+  .ov-legend { animation: fade-up 0.6s var(--ease) 1100ms backwards; }
+
+  .ov-lower > * { animation: fade-up 0.7s var(--ease) 500ms backwards; }
+  .ov-lower > :nth-child(2) { animation-delay: 640ms; }
+
+  /* switching tabs: the new panel slides in */
+  .tab-panel > * { animation: fade-up 0.4s var(--ease) backwards; }
+
+  /* the hijack result: BLOCKED is stamped, then each refusal is listed */
+  .result-blocked { animation: fade-up 0.35s var(--ease) backwards; }
+  .result-blocked .big { animation: stamp 0.45s cubic-bezier(0.25, 1.7, 0.45, 1) 150ms backwards; transform-origin: left center; }
+  .result-blocked .attempts li { animation: fade-up 0.45s var(--ease) backwards; }
+  .result-blocked .attempts li:nth-child(1) { animation-delay: 350ms; }
+  .result-blocked .attempts li:nth-child(2) { animation-delay: 440ms; }
+  .result-blocked .attempts li:nth-child(3) { animation-delay: 530ms; }
+  .result-blocked .attempts li:nth-child(4) { animation-delay: 620ms; }
+  .result-blocked .attempts li:nth-child(5) { animation-delay: 710ms; }
+  .result-blocked .attempts li:nth-child(6) { animation-delay: 800ms; }
+}
