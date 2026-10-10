@@ -141,7 +141,15 @@ export function OpenOrder() {
   }
 
   const intervalText = INTERVALS.find((i) => i.seconds === period)?.label.toLowerCase();
-  const cardState = card ? "ready" : "not yet";
+
+  // The first thing standing between this form and a signature, in the order a
+  // person fills it in. Only ever shown when there is no figure to print.
+  const missing =
+    !walletOk ? "Connect a wallet to begin."
+    : !card ? "Create your key card to continue."
+    : !isAddress(beneficiary) ? "Add the recipient's address."
+    : !calc.amt ? "Add an amount per payment."
+    : Object.values(calc.errors).find((e) => e) ?? "Fill in the terms above.";
 
   return (
     <div className="make">
@@ -150,36 +158,47 @@ export function OpenOrder() {
         <p>Say who gets paid, how much and how often. You sign once.</p>
       </header>
 
-      {/* Two things have to exist before the terms mean anything. They are
-          stated as conditions with a status, not as numbered steps — a step
-          list implies a wizard, and this is one form. */}
-      <section className="slab">
-        <div className="slab-head">
-          <span>Your wallet</span>
-          <span className={walletOk ? "ok" : ""}>{walletOk ? short(address ?? "") : "not connected"}</span>
+      {/* Two things have to exist before the terms mean anything. While they
+          are outstanding each needs room for its own controls; once they are
+          satisfied they are facts, not steps, and a full slab for a fact is a
+          box of air. So they collapse into one strip and give the height back
+          to the form. */}
+      {walletOk && card ? (
+        <div className="ready-strip">
+          <span><CircleCheck size={15} />Wallet <span className="mono">{short(address ?? "")}</span></span>
+          <span><CircleCheck size={15} />Key card ready</span>
         </div>
-        <div className="slab-body">
-          <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
-            <p className="done-line"><CircleCheck size={17} />Connected to {net.label}</p>
-          </WalletGate>
-        </div>
-      </section>
+      ) : (
+        <>
+          <section className="slab">
+            <div className="slab-head">
+              <span>Your wallet</span>
+              <span className={walletOk ? "ok" : ""}>{walletOk ? short(address ?? "") : "not connected"}</span>
+            </div>
+            <div className="slab-body">
+              <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
+                <p className="done-line"><CircleCheck size={17} />Connected to {net.label}</p>
+              </WalletGate>
+            </div>
+          </section>
 
-      <section className="slab">
-        <div className="slab-head">
-          <span>Your key card</span>
-          <span className={card ? "ok" : ""}>{cardState}</span>
-        </div>
-        <div className="slab-body">
-          {!card && (
-            <p className="slab-why">
-              <strong>{KEY_CARD_LINE}</strong> The only thing that can ever redirect this
-              money. Made here, never sent anywhere.
-            </p>
-          )}
-          <KeyCardCreator net={net} onReady={setCard} />
-        </div>
-      </section>
+          <section className="slab">
+            <div className="slab-head">
+              <span>Your key card</span>
+              <span className={card ? "ok" : ""}>{card ? "ready" : "not yet"}</span>
+            </div>
+            <div className="slab-body">
+              {!card && (
+                <p className="slab-why">
+                  <strong>{KEY_CARD_LINE}</strong> The only thing that can ever redirect this
+                  money. Made here, never sent anywhere.
+                </p>
+              )}
+              <KeyCardCreator net={net} onReady={setCard} />
+            </div>
+          </section>
+        </>
+      )}
 
       <fieldset disabled={!card || action.busy} className="make-terms">
         <section className="slab">
@@ -259,14 +278,24 @@ export function OpenOrder() {
       {/* Rialto's closing bar: the whole decision on one line, and the button
           that commits to it. A sidebar competed with the form for attention
           and repeated what the fields already said. */}
+      {/* The bar used to render "— USDC" in the display face whenever the form
+          was incomplete, over a dead button. A giant placeholder reads as a
+          broken number rather than as an empty one, so until there is a figure
+          worth printing the bar says what is still missing instead. */}
       <div className="make-bar">
         <div className="mb-sum">
-          <div className="mb-big num">{calc.funding ? usdc(calc.funding) : "— USDC"}</div>
-          <div className="mb-line">
-            {calc.amt && isAddress(beneficiary)
-              ? <>pays <strong>{usdc(calc.amt)}</strong> {intervalText} to <span className="mono">{short(beneficiary)}</span>, {asap ? "starting in about 2 min" : `starting ${formatDate(calc.startAt)}`}</>
-              : "fill in the terms above"}
-          </div>
+          {calc.funding ? (
+            <>
+              <div className="mb-big num">{usdc(calc.funding)}</div>
+              <div className="mb-line">
+                pays <strong>{usdc(calc.amt!)}</strong> {intervalText} to{" "}
+                <span className="mono">{short(beneficiary)}</span>,{" "}
+                {asap ? "starting in about 2 min" : `starting ${formatDate(calc.startAt)}`}
+              </div>
+            </>
+          ) : (
+            <div className="mb-todo">{missing}</div>
+          )}
         </div>
         <div className="mb-act">
           <WalletGate net={net}>

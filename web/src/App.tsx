@@ -33,50 +33,34 @@ function FindOrder() {
   );
 }
 
-/** Every column is a way to check a claim the site makes, or a way to act on it. */
+/**
+ * Minimal on purpose. This was a four-column sitemap, which is furniture a
+ * site with three pages has not earned: it took a screen of height to repeat
+ * the nav and list things the page above had already said. A footer here only
+ * has to do two jobs — let a sceptic reach the chain, and name what the app
+ * never does.
+ */
 function Footer() {
   const net = useNetwork();
   return (
     <footer className="footer">
-      <div className="container">
-        <div className="foot-grid">
-          <div className="foot-brand">
-            <span className="brand"><span className="brand-mark"><ScrollText size={16} /></span>Writ</span>
-            <p>A standing USDC order on Arc that only an offline key can redirect.</p>
-          </div>
-
-          <div className="foot-col">
-            <div className="eyebrow">Use it</div>
-            <NetLink to="/open">Create an order</NetLink>
-            {live !== null && <NetLink to={`/order/${live}`}>Live order #{live.toString()}</NetLink>}
-            <NetLink to="/how">How it works</NetLink>
-          </div>
-
-          <div className="foot-col">
-            <div className="eyebrow">Check it</div>
-            <a href={`${net.explorer}/address/${net.writ}`} target="_blank" rel="noreferrer">
-              Contract on Arc <ArrowUpRight size={12} />
-            </a>
-            <a href={`https://sourcify.dev/#/lookup/${net.writ}`} target="_blank" rel="noreferrer">
-              Verified source <ArrowUpRight size={12} />
-            </a>
-            <a href="https://csrc.nist.gov/pubs/fips/205/final" target="_blank" rel="noreferrer">
-              NIST FIPS 205 <ArrowUpRight size={12} />
-            </a>
-          </div>
-
-          <div className="foot-col">
-            <div className="eyebrow">What it never does</div>
-            <span>Hold your money</span>
-            <span>Run a server</span>
-            <span>See your key card</span>
-          </div>
-        </div>
-
-        <div className="foot-rule">
-          <span>Arc mainnet · chain 5042 · real money</span>
-          <span className="mono">{net.writ}</span>
-        </div>
+      <div className="container foot-row">
+        <span className="brand"><span className="brand-mark"><ScrollText size={15} /></span>Writ</span>
+        <nav className="foot-links">
+          <NetLink to="/how">How it works</NetLink>
+          <NetLink to="/open">New order</NetLink>
+          {live !== null && <NetLink to={`/order/${live}`}>Order #{live.toString()}</NetLink>}
+          <a href={`${net.explorer}/address/${net.writ}`} target="_blank" rel="noreferrer">
+            Contract <ArrowUpRight size={12} />
+          </a>
+          <a href={`https://sourcify.dev/#/lookup/${net.writ}`} target="_blank" rel="noreferrer">
+            Source <ArrowUpRight size={12} />
+          </a>
+        </nav>
+      </div>
+      <div className="container foot-rule">
+        <span>Arc mainnet · {net.writ}</span>
+        <span>No servers. Your key card never leaves your browser.</span>
       </div>
     </footer>
   );

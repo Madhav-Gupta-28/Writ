@@ -893,3 +893,41 @@ h1 em, h2 em, .display em { font-style: normal; color: var(--accent); }
 .how .cap { margin: 16px auto 0; max-width: 54ch; }
 .how .tl { max-width: 700px; margin: 18px auto 0; }
 .how .checks { margin-top: 34px; }
+
+/* --------------------------------------------------- footer, minimal again
+   Was a four-column sitemap: a screen of height to repeat the nav. A site
+   with three pages has not earned that. */
+.footer { margin-top: clamp(64px, 8vw, 104px); }
+.foot-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap; padding: 26px 0 20px;
+}
+.foot-row .brand { font-family: var(--display); font-size: 1.05rem; }
+.foot-links { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.foot-links a {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--text-2); font-size: 0.9rem; text-decoration: none; transition: color 0.15s;
+}
+.foot-links a:hover { color: var(--accent); text-decoration: none; }
+.foot-rule {
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 14px 0 24px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--muted);
+}
+
+/* ------------------------------------------- the prerequisites, once ready
+   A satisfied condition is a fact, not a step. A whole slab for a fact is a
+   box of air, and there were two of them above the first input. */
+.ready-strip {
+  display: flex; flex-wrap: wrap; gap: 10px 28px;
+  padding: 13px 20px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); font-size: 0.9rem; color: var(--text-2);
+}
+.ready-strip span { display: inline-flex; align-items: center; gap: 8px; }
+.ready-strip svg { color: var(--accent); flex-shrink: 0; }
+.ready-strip .mono { color: var(--text); }
+
+/* Tighter slabs: the form had more padding than content. */
+.slab-body { padding: 18px 20px; gap: 14px; }
+
+.mb-todo { color: var(--text-2); font-size: 1rem; }
