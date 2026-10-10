@@ -164,7 +164,7 @@ export function OpenOrder() {
     return (
       <div className="mk mk-done">
         <header className="mk-head">
-          <div className="ov-kicker"><span className="live-dot">Live on {net.label}</span></div>
+          
           <h1 className="ov-h"><Words text={`Order #${openedId.toString()} is live.`} step={80} /></h1>
           <p className="ov-sum">First payment due {formatDate(openedStart)}. From then on anyone can press Pay and earn the tip.</p>
         </header>
@@ -196,7 +196,7 @@ export function OpenOrder() {
   return (
     <div className="mk">
       <header className="mk-head">
-        <div className="ov-kicker"><span className="eyebrow">{net.label} · standing order</span></div>
+        
         <h1 className="ov-h"><Words text="New order." step={90} /></h1>
         <p className="ov-sum">Say who gets paid, how much and how often. You sign once, and from then on it pays itself.</p>
       </header>
@@ -215,7 +215,7 @@ export function OpenOrder() {
             <Step n="01" title="Your wallet" done={walletOk}
                   aside={<span className={walletOk ? "ok" : "mk-aside"}>{walletOk ? short(address ?? "") : "not connected"}</span>}>
               <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
-                <p className="done-line"><CircleCheck size={17} />Connected to {net.label}</p>
+                <p className="done-line"><CircleCheck size={17} />Connected</p>
               </WalletGate>
             </Step>
 
@@ -302,7 +302,7 @@ export function OpenOrder() {
           what is still missing, never a placeholder total like "— USDC". */}
       <aside className="mk-side">
         <div className="mk-draft">
-          <div className="mk-draft-head"><span>Standing order · draft</span><span>{net.label}</span></div>
+          <div className="mk-draft-head"><span>Standing order · draft</span></div>
           <DraftRow k="pays" v={calc.amt ? usdc(calc.amt) : null} />
           <DraftRow k="every" v={intervalText ?? null} />
           <DraftRow k="to" v={isAddress(beneficiary) ? short(beneficiary) : null} />

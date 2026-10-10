@@ -71,7 +71,6 @@ export function Home() {
         <div>
           <div className="hero2-kicker">
             <span className="live-dot">Live on Arc mainnet</span>
-            <span className="pill">order #{live?.toString() ?? "2"} · paying daily</span>
           </div>
           <h1>
             <Words text="A recurring USDC payment" />{" "}
@@ -81,27 +80,26 @@ export function Home() {
         <div className="hero2-grid">
           <div className="hero2-copy">
             <p className="lead">
-              Moving the money somewhere else needs a post-quantum key card you keep offline.
-              Arc checks it inside the chain. <strong>There is no other way in.</strong>
+              Redirecting it needs a post-quantum key card you keep offline, and Arc checks
+              that on-chain. <strong>There is no other way in.</strong>
             </p>
             <div className="hero-cta">
               <Link to={order} className="btn btn-primary btn-xl">
                 Try to steal a live payment <ArrowRight size={18} />
               </Link>
-              <NetLink to="/how" className="btn btn-xl">How it works</NetLink>
             </div>
             <div className="facts">
               <div className="fact">
                 <span className="v num"><CountUp value={EXECUTE.usd} /></span>
-                <span className="k">network fee per payment, refunded to whoever presses Pay, <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
+                <span className="k">per payment, refunded · <a href={`${ex}/tx/${EXECUTE.tx}`} target="_blank" rel="noreferrer">mainnet tx</a></span>
               </div>
               <div className="fact">
                 <span className="v num"><CountUp value={SIG_BYTES} /></span>
-                <span className="k">bytes in one key card signature</span>
+                <span className="k">bytes per signature</span>
               </div>
               <div className="fact">
                 <span className="v num">0</span>
-                <span className="k">servers, admins or upgrade keys</span>
+                <span className="k">servers, admins, upgrades</span>
               </div>
             </div>
           </div>
@@ -159,8 +157,8 @@ export function Home() {
               <div className="eyebrow eyebrow-accent">What Writ does</div>
               <h2 className="claim">So we took that power away from everyone.</h2>
               <p className="lead">
-                Funding is your ordinary wallet. Redirecting is a separate key that was never
-                online. Not a permission check — <strong>there is no function to call</strong>.
+                Your wallet funds it. A separate offline key redirects it. Not a permission
+                check — <strong>there is no function to call</strong>.
               </p>
               <div className="hero-cta">
                 <NetLink to="/how" className="btn btn-lg">See how it works</NetLink>
@@ -195,8 +193,8 @@ export function Home() {
             ))}
           </div>
           <p className="muted center limit">
-            And one limit, said out loud: 30 days after the end date the funding wallet can
-            reclaim whatever nobody collected.
+            One limit, said out loud: 30 days after the end date, the funding wallet
+            reclaims whatever nobody collected.
           </p>
         </Rise>
       </section>
@@ -207,7 +205,7 @@ export function Home() {
           <div>
             <span className="live-dot">Live on Arc mainnet</span>
             <h2>Order #{live.toString()} is paying 0.01 USDC a day.</h2>
-            <p>Press Pay and keep the tip. Or try all four ways to steal it and watch Arc refuse you.</p>
+            <p>Press Pay and keep the tip. Or try to steal it and watch Arc refuse.</p>
           </div>
           <Link to={order} className="btn btn-primary btn-xl">
             Open order #{live.toString()} <ArrowRight size={18} />

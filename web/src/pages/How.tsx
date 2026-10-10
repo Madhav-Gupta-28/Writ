@@ -63,7 +63,7 @@ export function How() {
     <div className="how-spatial">
       <section className="how-intro">
         <h1 className="mega"><Words text="How Writ works" step={90} /></h1>
-        <p className="intro-sub">Three ideas. Each one is something you can check on the chain yourself.</p>
+        <p className="intro-sub">Three ideas. Check each one on the chain.</p>
         <div className="portals">
           {PORTALS.map((p, i) => (
             <Tilt key={p.id} className="portal-wrap">
@@ -78,7 +78,7 @@ export function How() {
         </div>
       </section>
 
-      <Scene id="pays" title="It pays itself." sub="Fund it once. When a payment is due, any stranger can press Pay. The order pays the recipient and gives the presser their gas back plus a tip.">
+      <Scene id="pays" title="It pays itself." sub="Fund it once. Anyone can press Pay when it is due, and keeps the fee plus a tip.">
         <PaysScene />
         <Timeline />
         <Checks items={[
@@ -88,7 +88,7 @@ export function How() {
         ]} />
       </Scene>
 
-      <Scene id="keys" title="Only the key card can change it." sub="The wallet that funded the order cannot redirect it, reprice it or cancel it. There is no function for that. Changing anything needs a separate key, kept offline, that Arc checks itself.">
+      <Scene id="keys" title="Only the key card can change it." sub="The funding wallet cannot redirect, reprice or cancel it. There is no function for that — only an offline key, checked by Arc.">
         <KeysScene />
         <SignatureStats />
         <Checks items={[
@@ -98,7 +98,7 @@ export function How() {
         ]} />
       </Scene>
 
-      <Scene id="frozen" title="A frozen recipient loses nothing." sub="On Arc, paying an address Circle has frozen reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead. A freeze becomes a state, not an accident.">
+      <Scene id="frozen" title="A frozen recipient loses nothing." sub="Paying a frozen address reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead.">
         <FrozenScene />
         <Checks items={[
           ["What it reads", "isBlacklisted(address)", `${ex}/address/0x3600000000000000000000000000000000000000`],

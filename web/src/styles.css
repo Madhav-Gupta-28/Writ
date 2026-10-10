@@ -946,3 +946,19 @@ h1 em, h2 em, .display em { font-style: normal; color: var(--accent); }
   .hide-sm { display: none; }
   .nav a { white-space: nowrap; }
 }
+
+/* --------------------------------------------------------------- the bar
+   Brand left, links centred, wallet right. The links used to sit hard against
+   the brand, which read as a continuation of the wordmark rather than as
+   navigation. Three tracks, so the middle one is centred on the page and not
+   on whatever is left over. */
+.topbar-inner { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
+.topbar-inner .brand { justify-self: start; }
+.nav { justify-self: center; }
+.topbar-right { justify-self: end; }
+
+@media (max-width: 860px) {
+  .topbar-inner { grid-template-columns: auto 1fr; row-gap: 12px; }
+  .nav { grid-column: 1 / -1; justify-self: start; }
+  .topbar-right { justify-self: end; }
+}

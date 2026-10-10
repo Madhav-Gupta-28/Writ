@@ -33,7 +33,7 @@ function OrderTitle({ net, order, now }: { net: Network; order: Order; now: bigi
   return (
     <div className="ov-title">
       <div className="ov-kicker">
-        {order.state === "Active" ? <span className="live-dot">Live on {net.label}</span> : <span className="eyebrow">{net.label}</span>}
+        {order.state === "Active" && <span className="live-dot">Live</span>}
         <StateBadge state={order.state} />
       </div>
       <h1 className="ov-h"><Words text={`Order #${order.id.toString()}`} step={90} /></h1>

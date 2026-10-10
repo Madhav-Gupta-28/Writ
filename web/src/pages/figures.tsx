@@ -84,7 +84,7 @@ export function StandingOrder() {
     <div className="writ-plate" aria-busy={!o}>
       <div className="wp-head">
         <span>Standing order №{id?.toString() ?? "2"}</span>
-        <span className="wp-id">Arc mainnet · {state}</span>
+        <span className="wp-id">{state}</span>
       </div>
 
       {(["pays", "every", "to", "collected"] as const).map((k) => (
