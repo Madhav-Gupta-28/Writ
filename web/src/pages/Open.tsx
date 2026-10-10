@@ -141,117 +141,141 @@ export function OpenOrder() {
   }
 
   const intervalText = INTERVALS.find((i) => i.seconds === period)?.label.toLowerCase();
+  const cardState = card ? "ready" : "not yet";
 
   return (
-    <div className="stack">
-      <div className="section-head" style={{ marginBottom: 4 }}>
-        <h1>Create a standing order</h1>
-        <p>Three steps. You sign once.</p>
-      </div>
-      <div className="open-layout">
-        <div className="stack">
-          <section className={`card step-card ${walletOk ? "done" : ""}`}>
-            <div className="step-title"><span className="step-num">1</span><h2>Connect your wallet</h2></div>
-            <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
-              <p className="done-line"><CircleCheck size={18} />Connected to {net.label}</p>
-            </WalletGate>
-          </section>
+    <div className="make">
+      <header className="make-head">
+        <h1>New order.</h1>
+        <p>Say who gets paid, how much and how often. You sign once.</p>
+      </header>
 
-          <section className={`card step-card ${card ? "done" : ""}`}>
-            <div className="step-title"><span className="step-num">2</span><h2>Create your key card</h2></div>
-            {!card && (
-              <div className="keycard-explain">
-                <KeyRound size={22} className="ico icon" />
-                <div className="text-2">
-                  <strong style={{ color: "var(--text)" }}>Your key card is {KEY_CARD_LINE}</strong>
-                  The only thing that can ever redirect this money. Made here, never sent anywhere.
-                </div>
-              </div>
-            )}
-            <KeyCardCreator net={net} onReady={setCard} />
-          </section>
-
-          <section className={`card step-card ${card ? "" : "locked"}`}>
-            <div className="step-title"><span className="step-num">3</span><h2>Who, how much, how often</h2></div>
-            {!card && <p className="step-wait">Unlocks once your key card is saved.</p>}
-            <fieldset disabled={!card || action.busy}>
-              <Field label="Recipient address" error={calc.errors.beneficiary} hint="Only your key card can change this later.">
-                <input className="mono" placeholder="0x…" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value.trim())} spellCheck={false} />
-              </Field>
-              <div className="cols-2">
-                <Field label="Amount per payment (USDC)" error={calc.errors.amount}>
-                  <input inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                </Field>
-                <Field label="How often">
-                  <select value={period.toString()} onChange={(e) => setPeriod(BigInt(e.target.value))}>
-                    {INTERVALS.map((i) => <option key={i.label} value={i.seconds.toString()}>{i.label}</option>)}
-                  </select>
-                </Field>
-                <Field label="First payment" error={calc.errors.first}>
-                  <select value={asap ? "asap" : "at"} onChange={(e) => setAsap(e.target.value === "asap")}>
-                    <option value="asap">As soon as possible (about 2 min)</option>
-                    <option value="at">At a specific time…</option>
-                  </select>
-                  {!asap && <input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} aria-label="First payment time" />}
-                </Field>
-                <Field label="Last payment on or before" error={calc.errors.end} hint="A safety net if the key card is ever lost.">
-                  <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-                </Field>
-              </div>
-
-              <div className="stack" style={{ gap: 10 }}>
-                <span className="field-label">How much to put in now</span>
-                <label className="choice">
-                  <input type="radio" checked={fundMode === "all"} onChange={() => setFundMode("all")} />
-                  <span>Every payment{calc.fundAll !== null && calc.payments > 0n ? <> · <strong>{usdc(calc.fundAll)}</strong></> : ""}</span>
-                </label>
-                <label className="choice">
-                  <input type="radio" checked={fundMode === "custom"} onChange={() => setFundMode("custom")} />
-                  <span>A different amount <span className="muted">— anyone can top it up later</span></span>
-                </label>
-                {fundMode === "custom" && (
-                  <Field label="Amount to add now (USDC)" error={calc.errors.funding}>
-                    <input inputMode="decimal" value={fundText} onChange={(e) => setFundText(e.target.value)} />
-                  </Field>
-                )}
-              </div>
-
-              <details className="more">
-                <summary>More options <ChevronDown size={16} /></summary>
-                <div className="more-body cols-2">
-                  <Field label="Max tip per payment (USDC)" error={calc.errors.cap}
-                         hint={<>Whoever presses Pay gets their fee back plus a tip, up to this. Default {calc.amt ? usdc(suggestedFeeCap(calc.amt)) : "about 1%"}.</>}>
-                    <input inputMode="decimal" placeholder={calc.amt ? formatUsdc(suggestedFeeCap(calc.amt)) : "0.005"} value={feeCapText} onChange={(e) => setFeeCapText(e.target.value)} />
-                  </Field>
-                  <Field label="Reference (optional)" hint="An invoice number, say. Recorded with every payment.">
-                    <input value={refText} maxLength={100} onChange={(e) => setRefText(e.target.value)} />
-                  </Field>
-                </div>
-              </details>
-            </fieldset>
-          </section>
+      {/* Two things have to exist before the terms mean anything. They are
+          stated as conditions with a status, not as numbered steps — a step
+          list implies a wizard, and this is one form. */}
+      <section className="slab">
+        <div className="slab-head">
+          <span>Your wallet</span>
+          <span className={walletOk ? "ok" : ""}>{walletOk ? short(address ?? "") : "not connected"}</span>
         </div>
+        <div className="slab-body">
+          <WalletGate net={net} why="Your wallet funds the order. Fees are paid in USDC.">
+            <p className="done-line"><CircleCheck size={17} />Connected to {net.label}</p>
+          </WalletGate>
+        </div>
+      </section>
 
-        <aside className="card summary-card">
-          <div className="eyebrow">Summary</div>
-          <div>
-            <div className="summary-big">{calc.funding ? usdc(calc.funding) : "— USDC"}</div>
-            <div className="muted">goes into the order now</div>
+      <section className="slab">
+        <div className="slab-head">
+          <span>Your key card</span>
+          <span className={card ? "ok" : ""}>{cardState}</span>
+        </div>
+        <div className="slab-body">
+          {!card && (
+            <p className="slab-why">
+              <strong>{KEY_CARD_LINE}</strong> The only thing that can ever redirect this
+              money. Made here, never sent anywhere.
+            </p>
+          )}
+          <KeyCardCreator net={net} onReady={setCard} />
+        </div>
+      </section>
+
+      <fieldset disabled={!card || action.busy} className="make-terms">
+        <section className="slab">
+          <div className="slab-head"><span>Who gets paid</span></div>
+          <div className="slab-body">
+            <Field label="Recipient address" error={calc.errors.beneficiary}>
+              <input className="mono" placeholder="0x…" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value.trim())} spellCheck={false} />
+            </Field>
+            <div className="cols-2">
+              <Field label="Amount per payment (USDC)" error={calc.errors.amount}>
+                <input inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </Field>
+              <Field label="How often">
+                <select value={period.toString()} onChange={(e) => setPeriod(BigInt(e.target.value))}>
+                  {INTERVALS.map((i) => <option key={i.label} value={i.seconds.toString()}>{i.label}</option>)}
+                </select>
+              </Field>
+            </div>
           </div>
-          <ul className="summary-list">
-            <li><span>Pays</span><span>{calc.amt ? `${usdc(calc.amt)} ${intervalText}` : "—"}</span></li>
-            <li><span>To</span><span className="mono">{isAddress(beneficiary) ? short(beneficiary) : "—"}</span></li>
-            <li><span>First payment</span><span>{asap ? "In about 2 min" : formatDate(calc.startAt)}</span></li>
-            <li><span>Payments</span><span>{calc.payments > 0n ? calc.payments.toString() : "—"}</span></li>
-            <li><span>Covers</span><span>{calc.funding && calc.payments > 0n ? (calc.covered >= calc.payments ? "Every payment" : `${calc.covered} of ${calc.payments}`) : "—"}</span></li>
-          </ul>
-          <p className="field-hint">One signature, then one transaction. Anything left over comes back to you.</p>
+        </section>
+
+        <section className="slab">
+          <div className="slab-head"><span>How long</span></div>
+          <div className="slab-body">
+            <div className="cols-2">
+              <Field label="First payment" error={calc.errors.first}>
+                <select value={asap ? "asap" : "at"} onChange={(e) => setAsap(e.target.value === "asap")}>
+                  <option value="asap">As soon as possible</option>
+                  <option value="at">At a specific time…</option>
+                </select>
+                {!asap && <input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} aria-label="First payment time" />}
+              </Field>
+              <Field label="Last payment on or before" error={calc.errors.end} hint="A safety net if the key card is ever lost.">
+                <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        </section>
+
+        <section className="slab">
+          <div className="slab-head">
+            <span>How much to put in</span>
+            {calc.payments > 0n && <span>{calc.payments.toString()} payments</span>}
+          </div>
+          <div className="slab-body">
+            <div className="choices">
+              <label className="choice">
+                <input type="radio" checked={fundMode === "all"} onChange={() => setFundMode("all")} />
+                <span>Enough for every payment{calc.fundAll !== null && calc.payments > 0n ? <> · <strong>{usdc(calc.fundAll)}</strong></> : ""}</span>
+              </label>
+              <label className="choice">
+                <input type="radio" checked={fundMode === "custom"} onChange={() => setFundMode("custom")} />
+                <span>A different amount <span className="muted">— anyone can top it up later</span></span>
+              </label>
+            </div>
+            {fundMode === "custom" && (
+              <Field label="Amount to add now (USDC)" error={calc.errors.funding}>
+                <input inputMode="decimal" value={fundText} onChange={(e) => setFundText(e.target.value)} />
+              </Field>
+            )}
+            <details className="more">
+              <summary>More options <ChevronDown size={15} /></summary>
+              <div className="more-body cols-2">
+                <Field label="Max tip per payment (USDC)" error={calc.errors.cap}
+                       hint={<>Whoever presses Pay gets their fee back plus a tip, up to this.</>}>
+                  <input inputMode="decimal" placeholder={calc.amt ? formatUsdc(suggestedFeeCap(calc.amt)) : "0.005"} value={feeCapText} onChange={(e) => setFeeCapText(e.target.value)} />
+                </Field>
+                <Field label="Reference (optional)" hint="An invoice number, say. Recorded with every payment.">
+                  <input value={refText} maxLength={100} onChange={(e) => setRefText(e.target.value)} />
+                </Field>
+              </div>
+            </details>
+          </div>
+        </section>
+      </fieldset>
+
+      {/* Rialto's closing bar: the whole decision on one line, and the button
+          that commits to it. A sidebar competed with the form for attention
+          and repeated what the fields already said. */}
+      <div className="make-bar">
+        <div className="mb-sum">
+          <div className="mb-big num">{calc.funding ? usdc(calc.funding) : "— USDC"}</div>
+          <div className="mb-line">
+            {calc.amt && isAddress(beneficiary)
+              ? <>pays <strong>{usdc(calc.amt)}</strong> {intervalText} to <span className="mono">{short(beneficiary)}</span>, {asap ? "starting in about 2 min" : `starting ${formatDate(calc.startAt)}`}</>
+              : "fill in the terms above"}
+          </div>
+        </div>
+        <div className="mb-act">
           <WalletGate net={net}>
             <button className="btn btn-primary btn-xl" disabled={!calc.ready || action.busy} onClick={submit}>Sign and create order</button>
           </WalletGate>
           <StatusLine status={action.status} net={net} />
-        </aside>
+        </div>
       </div>
+      <p className="make-foot">One signature, then one transaction. Anything left over comes back to you.</p>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
 import type { Network } from "../config";
 import { useAction, useClient, useNetwork, useOrder, useParamId } from "../hooks";
 import { humanError } from "../lib/errors";
-import { formatDate, formatDay, formatUsdc, intervalLabel, relative, short, usdc } from "../lib/format";
+import { duration, formatDate, formatDay, formatUsdc, intervalLabel, relative, short, usdc } from "../lib/format";
 import { simulateHijack, type Attempt } from "../lib/hijack";
 import { costPerPayment, estimateReward, isFunded, paymentsLeft, reclaimOpensAt, runway, type Order } from "../lib/order";
 import { events, sendWrit } from "../lib/write";
@@ -26,67 +26,75 @@ function OrderHero({ net, order, now }: { net: Network; order: Order; now: bigin
   const total = order.periodsPaid + Number(live ? paymentsLeft(order) : 0n);
   const pct = total > 0 ? Math.round((order.periodsPaid / total) * 100) : 100;
   return (
-    <section className="card order-hero">
-      <p className="pays">
-        Pays <span className="amt">{usdc(order.amountPerPeriod)}</span> to <Addr net={net} a={order.beneficiary} /> {intervalLabel(order.periodSeconds)}
+    <>
+      <p className="order-sum">
+        Pays <strong>{usdc(order.amountPerPeriod)}</strong> to <Addr net={net} a={order.beneficiary} />{" "}
+        {intervalLabel(order.periodSeconds)}
       </p>
-      <div className="progress-wrap">
-        <div className="progress" role="progressbar" aria-valuenow={order.periodsPaid} aria-valuemin={0} aria-valuemax={total}>
-          <span style={{ width: `${Math.max(pct, order.periodsPaid > 0 ? 3 : 0)}%` }} />
-        </div>
-        <div className="progress-labels num">
-          <span><strong>{order.periodsPaid}</strong> of {total} payments made</span>
-          <span>{live ? `${total - order.periodsPaid} to go` : order.state === "Completed" ? "complete" : "stopped"}</span>
-        </div>
-      </div>
-      <div className="metrics">
-        <div className="metric">
-          <div className="eyebrow">Balance left</div>
-          <div className="v">{formatUsdc(order.balance)}<small>USDC</small></div>
-          <div className={`s ${live && !rw.fullyFunded && rw.funded < 3n ? "warn" : ""}`}>
-            {!live ? "No more payments"
-              : rw.needed === 0n ? "No payments left"
-              : rw.fullyFunded ? "Covers every remaining payment"
-              : rw.funded === 0n ? "Not enough for the next payment"
-              : `Covers ${rw.funded} more, until ${formatDay(rw.lastFundedAt!)}`}
+
+      {/* Rialto's request shape: label on the left, value on the right, a
+          hairline between. What was here before was a banner, a progress bar,
+          three metric tiles and a four-line paragraph — the same facts, spread
+          over four visual languages. */}
+      <div className="slabs">
+        <section className="slab">
+          <div className="slab-head"><span>Terms</span></div>
+          <dl className="rows">
+            <div><dt>Pays</dt><dd className="mono">{usdc(order.amountPerPeriod)}</dd></div>
+            <div><dt>Every</dt><dd className="mono">{duration(order.periodSeconds)}</dd></div>
+            <div><dt>To</dt><dd className="mono"><Addr net={net} a={order.beneficiary} /></dd></div>
+            <div><dt>Ends</dt><dd className="mono">{formatDay(order.endTime)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="slab">
+          <div className="slab-head">
+            <span>Progress</span>
+            <span className="num">{order.periodsPaid} of {total}</span>
           </div>
-        </div>
-        <div className="metric">
-          <div className="eyebrow">Payments left</div>
-          <div className="v">{live ? rw.needed.toString() : "0"}</div>
-          <div className="s">{live ? `${intervalLabel(order.periodSeconds)}` : order.state === "Completed" ? "All paid" : "Cancelled"}</div>
-        </div>
-        <div className="metric">
-          <div className="eyebrow">Ends</div>
-          <div className="v">{formatDay(order.endTime)}</div>
-          <div className="s">{order.endTime > now ? relative(order.endTime, now) : "ended"}</div>
-        </div>
+          <div className="slab-bar">
+            <div className="progress" role="progressbar" aria-valuenow={order.periodsPaid} aria-valuemin={0} aria-valuemax={total}>
+              <span style={{ width: `${Math.max(pct, order.periodsPaid > 0 ? 3 : 0)}%` }} />
+            </div>
+          </div>
+          <dl className="rows">
+            <div><dt>Balance</dt><dd className="mono">{formatUsdc(order.balance)} USDC</dd></div>
+            <div>
+              <dt>Covers</dt>
+              <dd className={!live ? "mono" : rw.fullyFunded ? "mono" : "mono warnv"}>
+                {!live ? "nothing further"
+                  : rw.needed === 0n ? "no payments left"
+                  : rw.fullyFunded ? "every remaining payment"
+                  : rw.funded === 0n ? "not the next one"
+                  : `${rw.funded} more, to ${formatDay(rw.lastFundedAt!)}`}
+              </dd>
+            </div>
+            <div><dt>Left to pay</dt><dd className="mono">{live ? rw.needed.toString() : "0"}</dd></div>
+          </dl>
+        </section>
       </div>
+
       {live && !rw.fullyFunded && rw.needed > 0n && (
-        <div style={{ marginTop: 16 }}><Note icon={ShieldAlert} kind="warn">Running low: {usdc(rw.shortfall)} more would cover every remaining payment. Anyone can add money below.</Note></div>
+        <Note icon={ShieldAlert} kind="warn">{usdc(rw.shortfall)} more covers every remaining payment. Anyone can add it.</Note>
       )}
       {order.state === "Quarantined" && (
-        <div style={{ marginTop: 16 }}><Note icon={Snowflake} kind="ice">The recipient has been frozen by Circle (the issuer of USDC), so paying them would fail. Instead of failing, this order paused itself. Nothing is lost. The key card holder can pick a new recipient or cancel and refund.</Note></div>
+        <Note icon={Snowflake} kind="ice">Circle froze the recipient, so this order paused itself rather than failing. Nothing is lost — the key card can pick a new recipient or refund.</Note>
       )}
       {live && order.cancelReadyAt > 0n && (
-        <div style={{ marginTop: 16 }}><Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it becomes final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note></div>
+        <Note icon={Clock} kind="warn">The funding wallet asked to cancel. Payments continue until it is final {relative(order.cancelReadyAt, now)}, and the key card can block it.</Note>
       )}
-      {/* Writ does not settle unpaid periods before a reclaim: 30 days after the
-          end date the funding wallet can take back whatever is still in the
-          order, including money for payments that came due and were never
-          collected. Anyone can press Pay, so this is avoidable - but only if
-          someone knows about it. Stated plainly rather than left in the spec. */}
+      {/* Writ does not settle unpaid periods before a reclaim: 30 days after
+          the end date the funding wallet can take back whatever is left,
+          including money for payments that came due and were never collected.
+          Anyone can press Pay, so it is avoidable — but only if someone knows,
+          so it is stated here rather than left in the spec. */}
       {live && order.periodsPaid < total && (
-        <div style={{ marginTop: 16 }}>
-          <Note icon={Clock} kind="warn">
-            Collect before {formatDate(reclaimOpensAt(order))}. From then on the funding
-            wallet can take back anything left in this order, including payments that
-            came due and nobody collected. Pressing Pay whenever a payment is due keeps
-            that from mattering, and anyone can do it.
-          </Note>
-        </div>
+        <Note icon={Clock} kind="warn">
+          Collect before {formatDay(reclaimOpensAt(order))} — after that the funding wallet
+          can reclaim anything nobody collected.
+        </Note>
       )}
-    </section>
+    </>
   );
 }
 
@@ -174,7 +182,7 @@ function HijackCard({ net, order, now }: { net: Network; order: Order; now: bigi
     <section className="card hijack-card">
       <h3><ShieldX size={18} style={{ color: "var(--danger)" }} /> Try to hijack this order</h3>
       <p className="text-2" style={{ fontSize: "0.93rem" }}>
-        Play the thief. We'll try to redirect the payments{address ? <> using <strong>your wallet</strong></> : <> using <strong>the wallet that funded it</strong>, the one a hacker would steal</>}.
+        Play the thief with {address ? <strong>your wallet</strong> : <strong>the wallet that funded it</strong>}.
         It's a free simulation: nothing is signed or sent.
       </p>
       <button className="btn btn-danger btn-block" onClick={run} disabled={busy}>
@@ -267,7 +275,7 @@ export function OrderView({ initialTab }: { initialTab?: Tab }) {
   }
   const { order, gasPrice } = q.data;
   if (order.state === "None") {
-    return <div className="card"><h2>No order #{id.toString()} on {net.label}</h2><p className="text-2" style={{ marginTop: 8 }}>Check the number, or switch network at the top of the page.</p></div>;
+    return <div className="card"><h2>No order #{id.toString()}</h2><p className="text-2" style={{ marginTop: 8 }}>Check the number.</p></div>;
   }
   const refetch = () => q.refetch();
 
@@ -283,7 +291,7 @@ export function OrderView({ initialTab }: { initialTab?: Tab }) {
       <div className="order-head">
         <h1>Order #{order.id.toString()}</h1>
         <StateBadge state={order.state} />
-        <span className="muted">{net.label}</span>
+        
       </div>
       <div className="order-layout">
         <div className="area-hero"><OrderHero net={net} order={order} now={now} /></div>
@@ -294,7 +302,7 @@ export function OrderView({ initialTab }: { initialTab?: Tab }) {
                 <div className="card panel-grid">
                   <div className="stack">
                     <h3 className="row"><CirclePlus size={18} /> Add money</h3>
-                    <p className="text-2 readable">Anyone can top up an order. The money can only ever go to the recipient, to whoever presses Pay (a small capped tip), or back to the wallet that funded it.</p>
+                    <p className="text-2 readable">Anyone can top up. The money can only reach the recipient, whoever presses Pay, or the wallet that funded it.</p>
                   </div>
                   <TopUp net={net} client={client} order={order} suggested={runway(order).shortfall} onDone={refetch} />
                 </div>

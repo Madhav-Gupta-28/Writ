@@ -15,7 +15,7 @@ import { isFunded, paymentsLeft } from "../lib/order";
 import { useSteps } from "../lib/reveal";
 
 const W = 760;
-const ease = { transition: "opacity .45s ease, fill .4s ease, stroke .4s ease" };
+const ease = { transition: "opacity .28s ease, fill .25s ease, stroke .25s ease" };
 
 function Box({
   x, y, w = 150, h = 54, label, sub, on, fill,
@@ -51,7 +51,7 @@ function Arrow({ x1, x2, y, on, dashed }: { x1: number; x2: number; y: number; o
    It pays itself. Money goes in once; anyone can press Pay; the recipient is
    paid and the presser is reimbursed. No keeper anywhere in the picture. */
 export function PaysItself() {
-  const [ref, n] = useSteps<HTMLDivElement>(5, 620);
+  const [ref, n] = useSteps<HTMLDivElement>(5, 330);
   const on = (i: number) => n >= i;
   return (
     <div ref={ref}>
@@ -91,7 +91,7 @@ export function PaysItself() {
    Two keys, two powers. The wallet can only ever add; the key card is the only
    thing that can redirect. Four attempts, four refusals. */
 export function TwoKeys() {
-  const [ref, n] = useSteps<HTMLDivElement>(6, 560);
+  const [ref, n] = useSteps<HTMLDivElement>(6, 300);
   const on = (i: number) => n >= i;
   const tries = [
     "Send future payments to me",
@@ -144,7 +144,7 @@ export function TwoKeys() {
    A frozen recipient. The attempt is not made at all, so no gas burns and the
    order parks instead of failing. */
 export function Frozen() {
-  const [ref, n] = useSteps<HTMLDivElement>(5, 640);
+  const [ref, n] = useSteps<HTMLDivElement>(5, 340);
   const on = (i: number) => n >= i;
   return (
     <div ref={ref}>
@@ -323,7 +323,7 @@ export function StandingOrder() {
    Twenty-five periods. The paid ones fill in, the due one pulses, and the
    caption is the only sentence: nobody is running this. */
 export function Timeline() {
-  const [ref, n] = useSteps<HTMLDivElement>(26, 95, "-40px");
+  const [ref, n] = useSteps<HTMLDivElement>(26, 62, "-40px");
   const total = 25;
   const paid = n > total ? total : n;
   return (
@@ -352,7 +352,7 @@ export function Timeline() {
    The one number that makes people lean in: a 7,856-byte hash-based signature,
    verified inside a transaction, for under a cent. */
 export function Signature() {
-  const [ref, n] = useSteps<HTMLDivElement>(4, 560, "-40px");
+  const [ref, n] = useSteps<HTMLDivElement>(4, 320, "-40px");
   const on = (i: number) => n >= i;
   return (
     <div ref={ref}>

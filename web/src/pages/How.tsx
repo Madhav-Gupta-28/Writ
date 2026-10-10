@@ -39,8 +39,8 @@ export function How() {
     <div className="how">
       <section className="chapter lede">
         <Rise>
-          <h1 className="claim">Four pictures. That is the whole thing.</h1>
-          <p className="sub center">An order that pays itself, a key nobody else holds, a signature the chain checks, and a recipient the issuer froze.</p>
+          <h1 className="claim">Three pictures. That is the whole thing.</h1>
+          <p className="sub center">An order that pays itself, a key nobody else holds, and a recipient the issuer froze.</p>
         </Rise>
       </section>
 
@@ -48,11 +48,11 @@ export function How() {
         <Rise>
           <p className="num">One</p>
           <h2>It pays itself.</h2>
-          <p className="sub">Fund it once. Any stranger can press Pay when a period is due, and the order reimburses their gas plus a tip.</p>
+          <p className="sub">Fund it once. Any stranger can press Pay when a period is due, and keeps the tip.</p>
           <div className="plate">
             <PaysItself />
-            <p className="cap"><strong>There is no keeper.</strong></p>
           </div>
+          <p className="cap"><strong>There is no keeper.</strong></p>
           <Timeline />
           <Checks items={[
             ["What anyone calls", "execute(id)", `${ex}/address/${addr}`],
@@ -66,15 +66,24 @@ export function How() {
         <Rise>
           <p className="num">Two</p>
           <h2>Only the key card can change it.</h2>
-          <p className="sub">Redirecting, repricing or cancelling needs the key card. The wallet that funded the order cannot do any of it — there is no function for it.</p>
+          <p className="sub">The wallet that funded the order cannot redirect it, reprice it or cancel it. There is no function for that.</p>
           <div className="plate">
             <TwoKeys />
-            <p className="cap"><strong>A stolen wallet is not a stolen payment.</strong></p>
           </div>
+          <p className="cap"><strong>A stolen wallet is not a stolen payment.</strong></p>
+
+          <p className="sub" style={{ marginTop: 38 }}>And it is the chain that checks, not our server: a 7,856-byte hash-based signature, verified by Arc itself.</p>
+          <div className="plate">
+            <Signature />
+          </div>
+          <p className="cap">
+            <strong>Bound to the chain, the contract, the order, the action, a nonce and a deadline.</strong> Nothing replays.
+          </p>
+
           <Checks items={[
             ["The standard", "NIST FIPS 205", "https://csrc.nist.gov/pubs/fips/205/final"],
-            ["Where it lives", "0x1800…0004", "https://docs.arc.io/arc/concepts/post-quantum-security"],
-            ["Try to break it", live !== null ? `order #${live}` : "the live order", `/order/${live}?net=mainnet`],
+            ["The precompile", "0x1800…0004", "https://docs.arc.io/arc/concepts/post-quantum-security"],
+            ["Try to break it", live !== null ? `order #${live}` : "the live order", `/order/${live}`],
           ]} />
         </Rise>
       </section>
@@ -82,29 +91,12 @@ export function How() {
       <section className="chapter">
         <Rise>
           <p className="num">Three</p>
-          <h2>The chain does the checking.</h2>
-          <p className="sub">Not our server. Not a multisig. A hash-based signature, verified by Arc itself, for less than a cent.</p>
-          <div className="plate">
-            <Signature />
-            <p className="cap"><strong>Every signature is bound to the chain, the contract, the order, the action, a nonce and a deadline.</strong> Nothing replays.</p>
-          </div>
-          <Checks items={[
-            ["The precompile", "verifySlhDsaSha2128s", "https://docs.arc.io/arc/concepts/post-quantum-security"],
-            ["What it costs", "433,953 gas · $0.0087", `${ex}/address/${addr}`],
-            ["The contract", "Writ.sol, verified", `${ex}/address/${addr}`],
-          ]} />
-        </Rise>
-      </section>
-
-      <section className="chapter">
-        <Rise>
-          <p className="num">Four</p>
           <h2>A frozen recipient loses nothing.</h2>
-          <p className="sub">On Arc a payment to a blocklisted address reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead.</p>
+          <p className="sub">On Arc, paying a blocklisted address reverts and burns the gas. Writ reads the blocklist first, for free, and parks the order instead.</p>
           <div className="plate">
             <Frozen />
-            <p className="cap"><strong>A freeze becomes a state, not an accident.</strong></p>
           </div>
+          <p className="cap"><strong>A freeze becomes a state, not an accident.</strong></p>
           <Checks items={[
             ["What it reads", "isBlacklisted(address)", `${ex}/address/0x3600000000000000000000000000000000000000`],
             ["What Arc's docs say", "reverts, consumes gas", "https://docs.arc.io/arc/references/evm-differences"],
