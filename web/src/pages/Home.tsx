@@ -1,83 +1,82 @@
+// The landing page: four beats, and the text is only ever a caption.
+//
+// The shape is Rialto's — what it is, why you cannot do it today, how we get
+// around it, what has already happened — with Tally's hero furniture on top:
+// three pills, a headline in three short lines, and one real artifact beside
+// it rather than a diagram of roles.
+//
+// The rule that governs every edit to this file: nobody reads a landing page.
+// A judge arrives with thirty seconds and arrives sceptical. So every claim is
+// either a picture, a number, or a link to the chain — and the longest piece of
+// prose on the page is two sentences.
+
 import { Link } from "react-router-dom";
-import {
-  ArrowRight, BadgeCheck, CalendarClock, ChevronDown, CircleUser, Coins, HandCoins, KeyRound, Lock, ScrollText,
-  ServerOff, ShieldCheck, ShieldX, Skull, Wallet,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { NETWORKS } from "../config";
+import { Rise } from "../lib/reveal";
 import { NetLink } from "../ui";
+import { StandingOrder, Timeline, TwoKeys } from "./figures";
 
-function RolesDiagram() {
-  return (
-    <div className="diagram" aria-label="How the roles fit together">
-      <div className="flow">
-        <div className="node">
-          <span className="ico"><Wallet size={22} /></span>
-          <strong>Your wallet</strong>
-          <small>adds money</small>
-        </div>
-        <span className="arrow"><ArrowRight size={22} /></span>
-        <div className="node writ">
-          <span className="ico"><ScrollText size={22} /></span>
-          <strong>Writ order</strong>
-          <small>holds it, pays on schedule</small>
-        </div>
-        <span className="arrow"><ArrowRight size={22} /></span>
-        <div className="node">
-          <span className="ico"><CircleUser size={22} /></span>
-          <strong>Recipient</strong>
-          <small>gets paid</small>
-        </div>
-      </div>
-      <div className="connector" aria-hidden="true"><span /><span /></div>
-      <div className="side-row">
-        <div className="side">
-          <span className="ico"><HandCoins size={20} /></span>
-          <div><strong>Anyone</strong><small>presses Pay when it's due and earns a small tip</small></div>
-        </div>
-        <div className="side key">
-          <span className="ico"><KeyRound size={20} /></span>
-          <div><strong>Your key card</strong><small>the only thing that can change the recipient, kept offline</small></div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const MAINNET = NETWORKS.mainnet;
+const live = MAINNET.featuredOrder;
+const ex = MAINNET.explorer;
+const order = live !== null ? `/order/${live}?net=mainnet` : "/open";
 
-const STEPS = [
-  { icon: Coins, title: "Fund it", text: "Choose who gets paid, how much and how often. Sign once, and the money goes into the order." },
-  { icon: CalendarClock, title: "It pays on schedule", text: "Every time a payment is due, anyone can press Pay and earn a small tip. No server, no subscription." },
-  { icon: KeyRound, title: "Only your key card can change it", text: "Your key card is a password-protected file only you hold. Without it, nobody can redirect the money. Not even your own wallet." },
+const STATS: [string, string][] = [
+  ["$0.0022", "to make one payment"],
+  ["433,953", "gas to prove authority"],
+  ["197", "tests, 7 against live Arc"],
+  ["0", "servers, admins, upgrades"],
+];
+
+// The problem, as three things that are true of every recurring payment that
+// exists today. Numbers rather than adjectives.
+const TODAY: [string, string, string][] = [
+  ["A card on file", "one phished login", "and the payout address is theirs"],
+  ["A multisig", "one compromised signer short of threshold", "and you are still negotiating"],
+  ["A smart-contract subscription", "whoever holds the owner key", "can point it anywhere, instantly"],
 ];
 
 export function Home() {
-  const live = NETWORKS.mainnet.featuredOrder;
   return (
     <div className="stack-lg">
+      {/* 1 — what it is */}
       <section className="hero">
         <div>
-          <h1>Recurring USDC payments <em>a hacker can't redirect.</em></h1>
-          <p className="lead">Set up a payment once and it keeps paying the same person on schedule. Even someone who steals your wallet can't send it anywhere else.</p>
-          <div className="hero-cta">
-            {live !== null && (
-              <Link to={`/order/${live}?net=mainnet`} className="btn btn-primary btn-lg">See a live order <ArrowRight size={18} /></Link>
-            )}
-            <NetLink to="/open" className="btn btn-lg">Create an order</NetLink>
+          <div className="pills">
+            <span className="pill pill-accent">Live on Arc mainnet</span>
+            <span className="pill">NIST FIPS 205</span>
+            <span className="pill">No server</span>
           </div>
-          <div className="trust">
-            <span><ShieldCheck size={16} /> Checked by the blockchain itself</span>
-            <span><ServerOff size={16} /> No servers, no sign-up</span>
+          <h1>
+            <span>Set it once.</span>
+            <span>Steal the wallet.</span>
+            <em>It still pays.</em>
+          </h1>
+          <p className="lead">
+            A standing USDC order that <strong>your own wallet cannot redirect</strong>. Moving the
+            money somewhere else needs a post-quantum key card — and Arc checks it inside the chain.
+          </p>
+          <div className="hero-cta">
+            <Link to={order} className="btn btn-primary btn-lg">
+              Try to hijack it <ArrowRight size={18} />
+            </Link>
+            <NetLink to="/how" className="btn btn-lg">How it works</NetLink>
+          </div>
+          <div className="dont-trust">
+            <div className="eyebrow">Don&rsquo;t take our word for it</div>
+            <a className="link" href={`${ex}/address/${MAINNET.writ}`} target="_blank" rel="noreferrer">
+              Read the contract on Arc <ArrowUpRight size={14} />
+            </a>
+            <span className="muted">There is no function that redirects an order. Look.</span>
           </div>
         </div>
-        <RolesDiagram />
+        <StandingOrder />
       </section>
 
+      {/* the numbers */}
       <section className="statband">
-        {[
-          ["433,953", "gas to change an order"],
-          ["$0.0022", "to make one payment"],
-          ["197", "tests, 7 against live Arc"],
-          ["0", "servers"],
-        ].map(([v, k]) => (
+        {STATS.map(([v, k]) => (
           <div key={k} className="stat">
             <div className="v num">{v}</div>
             <div className="eyebrow">{k}</div>
@@ -85,52 +84,73 @@ export function Home() {
         ))}
       </section>
 
+      {/* 2 — why you cannot do this today */}
       <section>
-        <div className="section-head">
-          <div className="eyebrow">How it works</div>
-          <h2>Three steps, then it runs itself</h2>
-        </div>
-        <div className="cols-3">
-          {STEPS.map(({ icon: Icon, title, text }, i) => (
-            <div key={title} className="card step">
-              <span className="ico"><Icon size={24} /></span>
-              <span className="n">STEP {i + 1}</span>
-              <h3>{title}</h3>
-              <p className="text-2">{text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card hacker">
-        <div>
-          <div className="eyebrow">The hacker test</div>
-          <h2 style={{ marginTop: 6 }}>What happens if someone steals your wallet?</h2>
-          <p className="text-2 readable" style={{ marginTop: 12 }}>
-            With most payment tools, a stolen wallet means stolen payments. With Writ, your wallet can add money but it can never
-            change who gets paid. That takes your key card, which was never on the hacked device.
+        <Rise>
+          <div className="eyebrow eyebrow-accent">The problem</div>
+          <h2 className="claim">Every recurring payment has one key that can reroute it.</h2>
+          <div className="cols-3" style={{ marginTop: 28 }}>
+            {TODAY.map(([what, one, then]) => (
+              <div key={what} className="card today">
+                <div className="eyebrow">{what}</div>
+                <div className="t-one">{one}</div>
+                <div className="t-then">{then}</div>
+              </div>
+            ))}
+          </div>
+          <p className="lead" style={{ marginTop: 26, maxWidth: "46ch" }}>
+            Salaries, rent, vesting, payroll. The money is correct right up to the moment somebody
+            else holds the key.
           </p>
-          {live !== null && (
-            <p style={{ marginTop: 16 }}>
-              <Link to={`/order/${live}?net=mainnet`} className="link">Try it yourself on a live order <ArrowRight size={14} style={{ verticalAlign: -2 }} /></Link>
-            </p>
-          )}
-        </div>
-        <div className="attack">
-          <div className="attack-row bad"><span className="ico"><Skull size={18} /></span><div><strong>Hacker has your wallet</strong><div className="muted">and tries: "send all future payments to me"</div></div></div>
-          <div className="attack-row blocked"><span className="ico"><ShieldX size={18} /></span><div><strong>Blocked</strong><div className="muted">Changing the recipient needs the key card. The wallet alone is refused.</div></div></div>
-          <div className="attack-row safe"><span className="ico"><BadgeCheck size={18} /></span><div><strong>Payments keep going to the right person</strong><div className="muted" style={{ color: "var(--accent)" }}>Nothing to undo, nothing lost.</div></div></div>
-        </div>
+        </Rise>
       </section>
 
+      {/* 3 — how we get around it */}
+      <section>
+        <Rise>
+          <div className="beside">
+            <div>
+              <div className="eyebrow eyebrow-accent">What Writ does</div>
+              <h2 className="claim">So we take that power away from everyone.</h2>
+              <p className="lead" style={{ marginTop: 18 }}>
+                Funding is your ordinary wallet. <strong>Redirecting is a separate key</strong>,
+                generated in your browser and never online.
+              </p>
+              <p className="lead" style={{ marginTop: 14 }}>
+                Not a permission check. There is no function to call.
+              </p>
+              <div className="hero-cta" style={{ marginTop: 26 }}>
+                <NetLink to="/how" className="btn btn-lg">See all three pictures</NetLink>
+              </div>
+            </div>
+            <TwoKeys />
+          </div>
+        </Rise>
+      </section>
+
+      {/* and it runs itself */}
+      <section>
+        <Rise>
+          <div className="eyebrow eyebrow-accent">And nobody runs it</div>
+          <h2 className="claim">Twenty-five payments. No keeper.</h2>
+          <Timeline />
+        </Rise>
+      </section>
+
+      {/* 4 — what has already happened */}
       {live !== null && (
         <section className="live-cta">
           <div>
             <span className="live-dot">Live on Arc mainnet</span>
-            <h2 style={{ marginTop: 10 }}>Order #{live.toString()} pays 0.01 USDC every day</h2>
-            <p>It's real and running right now. Watch the countdown, press Pay when it's due and earn the tip, or try to hijack it and see it get blocked.</p>
+            <h2 style={{ marginTop: 10 }}>Order #{live.toString()} pays 0.01 USDC a day, right now.</h2>
+            <p>
+              Press Pay and keep the tip. Or try all four ways to steal it and watch Arc refuse you.
+              Both are free.
+            </p>
           </div>
-          <Link to={`/order/${live}?net=mainnet`} className="btn btn-primary btn-lg">Open order #{live.toString()} <ArrowRight size={18} /></Link>
+          <Link to={order} className="btn btn-primary btn-lg">
+            Open order #{live.toString()} <ArrowRight size={18} />
+          </Link>
         </section>
       )}
 
@@ -152,29 +172,11 @@ export function Home() {
           ))}
         </div>
         <p className="muted center readable" style={{ margin: "22px auto 0" }}>
-          And one it does have: 30 days after the end date the funding wallet can take back
-          whatever is left, including payments nobody collected. Anyone can press Pay, so
-          collecting on time is the answer — but it is a real limit, so it is written here.
+          And one it does have: 30 days after the end date the funding wallet can take back whatever
+          is left, including payments nobody collected. Anyone can press Pay, so collecting on time
+          is the answer — but it is a real limit, so it is written here.
         </p>
       </section>
-
-      <details className="tech more">
-        <summary><Lock size={16} /> How it works: the technical version <ChevronDown size={16} /></summary>
-        <div className="more-body">
-          <dl>
-            <dt>Three separate powers</dt>
-            <dd>Funding is your normal (ECDSA) wallet. Paying is permissionless: anyone can call <span className="mono">execute</span> and is reimbursed gas plus a capped tip. Changing terms requires an SLH-DSA-SHA2-128s signature (NIST FIPS 205, hash-based, post-quantum).</dd>
-            <dt>Verified on-chain</dt>
-            <dd>Arc checks the key card signature with its built-in post-quantum precompile at <span className="mono">0x1800…0004</span>. Every signature is bound to the chain, the contract, the order, the action, a nonce and a deadline, so it can't be replayed.</dd>
-            <dt>Frozen recipients</dt>
-            <dd>Before each payment the contract checks USDC's blocklist. If the recipient is frozen, the order is marked frozen instead of failing; the key card can then pick a new recipient or cancel and refund.</dd>
-            <dt>The wallet's only exits</dt>
-            <dd>A 30-day public notice to cancel (the key card can veto it), and reclaiming leftovers 30 days after the end date.</dd>
-            <dt>No backend</dt>
-            <dd>This site is static. It reads the chain directly; your key card is generated, encrypted (PBKDF2 + AES-GCM) and used only in your browser.</dd>
-          </dl>
-        </div>
-      </details>
     </div>
   );
 }

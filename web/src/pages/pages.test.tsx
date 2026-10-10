@@ -45,10 +45,27 @@ describe("Home", () => {
   it("leads with the claim and links to the live mainnet order", async () => {
     const { Home } = await import("./Home");
     renderPage(<Home />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/redirect/i);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/still pays/i);
     // The featured order is mainnet #2.
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(links.some((h) => h?.includes("/order/2"))).toBe(true);
+  });
+
+  // The hero artifact is the whole pitch: a judge who reads nothing but the
+  // first screen has to come away knowing that four named parties — including
+  // the payer and the authors — are refused. If the stamps stop rendering the
+  // page still looks finished, so this is asserted rather than eyeballed.
+  it("stamps all four refusals into the hero plate", async () => {
+    const { Home } = await import("./Home");
+    renderPage(<Home />);
+    const stamps = [...document.querySelectorAll(".writ-plate .stamp")];
+    expect(stamps.length).toBe(4);
+    for (const s of stamps) expect(s.textContent).toMatch(/refused/i);
+    const plate = document.querySelector(".writ-plate")?.textContent ?? "";
+    expect(plate).toMatch(/funded it/i);   // the payer is refused
+    expect(plate).toMatch(/authors/i);     // and so are we
+    expect(plate).toMatch(/quantum/i);
+    expect(plate).toMatch(/the only thing that can/i);
   });
 
   it("explains the three authorities", async () => {
@@ -244,17 +261,18 @@ describe("TopUp", () => {
 });
 
 describe("How", () => {
-  it("runs three numbered chapters, each with a figure and three checks", async () => {
+  it("runs four numbered chapters, each with a figure and three checks", async () => {
     const { How } = await import("./How");
     renderPage(<How />, { route: "/how?net=testnet" });
     const body = document.body.textContent ?? "";
-    for (const n of ["One", "Two", "Three"]) expect(body).toContain(n);
+    for (const n of ["One", "Two", "Three", "Four"]) expect(body).toContain(n);
     expect(body).toMatch(/it pays itself/i);
     expect(body).toMatch(/only the key card can change it/i);
+    expect(body).toMatch(/the chain does the checking/i);
     expect(body).toMatch(/frozen recipient loses nothing/i);
-    // three figures, three check-rows of three links each
-    expect(document.querySelectorAll("svg[role='img']").length).toBe(3);
-    expect(document.querySelectorAll(".checks a").length).toBe(9);
+    // four figures, four check-rows of three links each
+    expect(document.querySelectorAll("svg[role='img']").length).toBe(4);
+    expect(document.querySelectorAll(".checks a").length).toBe(12);
   });
 
   it("gives every figure an aria-label, since they carry the argument", async () => {
