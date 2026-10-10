@@ -1,17 +1,17 @@
-// The landing page: four beats, and the text is only ever a caption.
+// The landing page: five beats, and the text is only ever a caption.
 //
-// The shape is Rialto's — what it is, why you cannot do it today, how we get
-// around it, what has already happened — with Tally's hero furniture on top:
-// three pills, a headline in three short lines, and one real artifact beside
-// it rather than a diagram of roles.
+// The rule that governs every edit here: nobody reads a landing page. A judge
+// arrives with thirty seconds and arrives sceptical. So every claim is either a
+// picture, a number, or a link to the chain — and no paragraph runs past two
+// lines.
 //
-// The rule that governs every edit to this file: nobody reads a landing page.
-// A judge arrives with thirty seconds and arrives sceptical. So every claim is
-// either a picture, a number, or a link to the chain — and the longest piece of
-// prose on the page is two sentences.
+// The headline used to be three imperatives ("Set it once. Steal the wallet.
+// It still pays."). It was punchy and it explained nothing: you had to already
+// know what the product was for it to land. This one states the product and
+// the surprise in one sentence, and the plate beside it proves the surprise.
 
 import { Link } from "react-router-dom";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { NETWORKS } from "../config";
 import { Rise } from "../lib/reveal";
 import { NetLink } from "../ui";
@@ -19,8 +19,7 @@ import { StandingOrder, Timeline, TwoKeys } from "./figures";
 
 const MAINNET = NETWORKS.mainnet;
 const live = MAINNET.featuredOrder;
-const ex = MAINNET.explorer;
-const order = live !== null ? `/order/${live}?net=mainnet` : "/open";
+const order = live !== null ? `/order/${live}` : "/open";
 
 const STATS: [string, string][] = [
   ["$0.0022", "to make one payment"],
@@ -30,48 +29,42 @@ const STATS: [string, string][] = [
 ];
 
 // The problem, as three things that are true of every recurring payment that
-// exists today. Numbers rather than adjectives.
+// exists today. Each one is a single point of failure named out loud.
 const TODAY: [string, string, string][] = [
-  ["A card on file", "one phished login", "and the payout address is theirs"],
-  ["A multisig", "one compromised signer short of threshold", "and you are still negotiating"],
-  ["A smart-contract subscription", "whoever holds the owner key", "can point it anywhere, instantly"],
+  ["A card on file", "one phished login", "the payout address is theirs"],
+  ["A multisig", "one signer short of threshold", "you are still negotiating"],
+  ["A contract subscription", "whoever holds the owner key", "points it anywhere, instantly"],
+];
+
+const NOT: [string, string][] = [
+  ["No admin", "nobody can pause it"],
+  ["No upgrade path", "the code cannot change"],
+  ["No custody", "we never hold your money"],
+  ["No server", "delete us and it still pays"],
 ];
 
 export function Home() {
   return (
-    <div className="stack-lg">
+    <div className="landing">
       {/* 1 — what it is */}
       <section className="hero">
-        <div>
-          <div className="pills">
-            <span className="pill pill-accent">Live on Arc mainnet</span>
-            <span className="pill">NIST FIPS 205</span>
-            <span className="pill">No server</span>
-          </div>
+        <div className="hero-copy">
+          <span className="pill pill-accent">Live on Arc mainnet</span>
           <h1>
-            <span>Set it once.</span>
-            <span>Steal the wallet.</span>
-            <em>It still pays.</em>
+            <span>A recurring USDC payment</span>
+            <em>not even your wallet can redirect.</em>
           </h1>
           <p className="lead">
-            A standing USDC order that <strong>your own wallet cannot redirect</strong>. Moving the
-            money somewhere else needs a post-quantum key card — and Arc checks it inside the chain.
+            Moving the money somewhere else needs a post-quantum key card you keep offline.
+            Arc checks it inside the chain. There is no other way in.
           </p>
           <div className="hero-cta">
-            <Link to={order} className="btn btn-primary btn-lg">
-              Try to hijack it <ArrowRight size={18} />
+            <Link to={order} className="btn btn-primary btn-xl">
+              Try to steal a live payment <ArrowRight size={18} />
             </Link>
-            <NetLink to="/how" className="btn btn-lg">How it works</NetLink>
-          </div>
-          <div className="dont-trust">
-            <div className="eyebrow">Don&rsquo;t take our word for it</div>
-            <a className="link" href={`${ex}/address/${MAINNET.writ}`} target="_blank" rel="noreferrer">
-              Read the contract on Arc <ArrowUpRight size={14} />
-            </a>
-            <span className="muted">There is no function that redirects an order. Look.</span>
           </div>
         </div>
-        <StandingOrder />
+        <div className="hero-art"><StandingOrder /></div>
       </section>
 
       {/* the numbers */}
@@ -85,11 +78,11 @@ export function Home() {
       </section>
 
       {/* 2 — why you cannot do this today */}
-      <section>
+      <section className="beat">
         <Rise>
           <div className="eyebrow eyebrow-accent">The problem</div>
-          <h2 className="claim">Every recurring payment has one key that can reroute it.</h2>
-          <div className="cols-3" style={{ marginTop: 28 }}>
+          <h2 className="claim">One stolen key reroutes every future payment.</h2>
+          <div className="cols-3 gapped">
             {TODAY.map(([what, one, then]) => (
               <div key={what} className="card today">
                 <div className="eyebrow">{what}</div>
@@ -98,29 +91,22 @@ export function Home() {
               </div>
             ))}
           </div>
-          <p className="lead" style={{ marginTop: 26, maxWidth: "46ch" }}>
-            Salaries, rent, vesting, payroll. The money is correct right up to the moment somebody
-            else holds the key.
-          </p>
         </Rise>
       </section>
 
       {/* 3 — how we get around it */}
-      <section>
+      <section className="beat">
         <Rise>
           <div className="beside">
             <div>
               <div className="eyebrow eyebrow-accent">What Writ does</div>
-              <h2 className="claim">So we take that power away from everyone.</h2>
-              <p className="lead" style={{ marginTop: 18 }}>
-                Funding is your ordinary wallet. <strong>Redirecting is a separate key</strong>,
-                generated in your browser and never online.
+              <h2 className="claim">So we took that power away from everyone.</h2>
+              <p className="lead">
+                Funding is your ordinary wallet. Redirecting is a separate key that was never
+                online. Not a permission check — <strong>there is no function to call</strong>.
               </p>
-              <p className="lead" style={{ marginTop: 14 }}>
-                Not a permission check. There is no function to call.
-              </p>
-              <div className="hero-cta" style={{ marginTop: 26 }}>
-                <NetLink to="/how" className="btn btn-lg">See all three pictures</NetLink>
+              <div className="hero-cta">
+                <NetLink to="/how" className="btn btn-lg">See how it works</NetLink>
               </div>
             </div>
             <TwoKeys />
@@ -128,8 +114,8 @@ export function Home() {
         </Rise>
       </section>
 
-      {/* and it runs itself */}
-      <section>
+      {/* 4 — and nobody runs it */}
+      <section className="beat">
         <Rise>
           <div className="eyebrow eyebrow-accent">And nobody runs it</div>
           <h2 className="claim">Twenty-five payments. No keeper.</h2>
@@ -137,46 +123,40 @@ export function Home() {
         </Rise>
       </section>
 
-      {/* 4 — what has already happened */}
+      {/* 5 — what it refuses to be */}
+      <section className="beat">
+        <Rise>
+          <div className="section-head center">
+            <h2 className="claim centered">Four things it does not have.</h2>
+          </div>
+          <div className="cols-4">
+            {NOT.map(([t, d]) => (
+              <div key={t} className="have">
+                <div className="eyebrow">{t}</div>
+                <div className="text-2">{d}</div>
+              </div>
+            ))}
+          </div>
+          <p className="muted center limit">
+            And one limit, said out loud: 30 days after the end date the funding wallet can
+            reclaim whatever nobody collected.
+          </p>
+        </Rise>
+      </section>
+
+      {/* the ask */}
       {live !== null && (
         <section className="live-cta">
           <div>
             <span className="live-dot">Live on Arc mainnet</span>
-            <h2 style={{ marginTop: 10 }}>Order #{live.toString()} pays 0.01 USDC a day, right now.</h2>
-            <p>
-              Press Pay and keep the tip. Or try all four ways to steal it and watch Arc refuse you.
-              Both are free.
-            </p>
+            <h2>Order #{live.toString()} is paying 0.01 USDC a day.</h2>
+            <p>Press Pay and keep the tip. Or try all four ways to steal it and watch Arc refuse you.</p>
           </div>
-          <Link to={order} className="btn btn-primary btn-lg">
+          <Link to={order} className="btn btn-primary btn-xl">
             Open order #{live.toString()} <ArrowRight size={18} />
           </Link>
         </section>
       )}
-
-      <section className="haves">
-        <div className="section-head center">
-          <h2>Four things it does not have.</h2>
-        </div>
-        <div className="cols-4">
-          {[
-            ["No admin", "nobody can pause it"],
-            ["No upgrade path", "the code cannot change"],
-            ["No custody", "we never hold your money"],
-            ["No server", "delete us and it still pays"],
-          ].map(([t, d]) => (
-            <div key={t} className="have">
-              <div className="eyebrow">{t}</div>
-              <div className="text-2">{d}</div>
-            </div>
-          ))}
-        </div>
-        <p className="muted center readable" style={{ margin: "22px auto 0" }}>
-          And one it does have: 30 days after the end date the funding wallet can take back whatever
-          is left, including payments nobody collected. Anyone can press Pay, so collecting on time
-          is the answer — but it is a real limit, so it is written here.
-        </p>
-      </section>
     </div>
   );
 }

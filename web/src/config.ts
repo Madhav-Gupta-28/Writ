@@ -7,7 +7,7 @@ import { createConfig, http, injected } from "wagmi";
 
 export type NetworkName = "testnet" | "mainnet";
 
-export const DEFAULT_NETWORK: NetworkName = "testnet";
+export const DEFAULT_NETWORK: NetworkName = "mainnet";
 
 export interface Network {
   name: NetworkName;
@@ -74,19 +74,21 @@ export const EXECUTOR_TIP = 10_000n; // 0.01 USDC, 6dp
 export const REIMBURSE_OVERHEAD = 30_000n;
 export const EXECUTE_GAS = 125_696n; // measured on Arc testnet, ARCHITECTURE.md §6.1
 
-const STORAGE_KEY = "writ.network";
-
-export function networkFromUrl(search: string): NetworkName {
-  const q = new URLSearchParams(search).get("net");
-  if (q === "mainnet" || q === "testnet") {
-    try { localStorage.setItem(STORAGE_KEY, q); } catch { /* private mode */ }
-    return q;
-  }
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (s === "mainnet" || s === "testnet") return s;
-  } catch { /* private mode */ }
-  return DEFAULT_NETWORK;
+/**
+ * This app is mainnet-only.
+ *
+ * It used to offer a network switcher. A judge opening the site landed on
+ * testnet by default and saw play money, which undersells the one fact worth
+ * selling: the contract is deployed, funded and running on Arc mainnet. A
+ * chooser also asks a visitor to make a decision before they know what the
+ * product is.
+ *
+ * The testnet entry stays in NETWORKS because the test harness and the deploy
+ * scripts target it, but nothing in the UI can reach it, and `?net=testnet` is
+ * ignored rather than honoured.
+ */
+export function networkFromUrl(_search: string): NetworkName {
+  return "mainnet";
 }
 
 export const wagmiConfig = createConfig({
