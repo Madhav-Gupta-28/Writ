@@ -15,29 +15,10 @@ import { events, sendWrit } from "../lib/write";
 import { Addr, Note, Skel, StateBadge, StatusLine, Tabs, WalletGate } from "../ui";
 import { KeyCardPanel } from "./KeyCardPanel";
 import { PayerPanel } from "./PayerPanel";
+import { countdown, useLiveNow } from "../lib/clock";
 import { TopUp } from "./TopUp";
 
 type Tab = "funds" | "keycard" | "payer" | "details";
-
-/** Chain time that keeps ticking between refreshes. */
-function useLiveNow(chainNow: bigint | undefined, fetchedAt: number) {
-  const [t, setT] = useState(() => Date.now());
-  useEffect(() => {
-    const i = setInterval(() => setT(Date.now()), 1000);
-    return () => clearInterval(i);
-  }, []);
-  if (chainNow === undefined) return undefined;
-  return chainNow + BigInt(Math.max(0, Math.floor((t - fetchedAt) / 1000)));
-}
-
-function countdown(s: bigint) {
-  let n = Number(s < 0n ? 0n : s);
-  const d = Math.floor(n / 86400); n -= d * 86400;
-  const h = Math.floor(n / 3600); n -= h * 3600;
-  const m = Math.floor(n / 60); const sec = n - m * 60;
-  const p = (x: number) => String(x).padStart(2, "0");
-  return `${d > 0 ? `${d}d ` : ""}${p(h)}:${p(m)}:${p(sec)}`;
-}
 
 function OrderHero({ net, order, now }: { net: Network; order: Order; now: bigint }) {
   const rw = runway(order);

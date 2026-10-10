@@ -68,6 +68,45 @@ describe("Home", () => {
     expect(plate).toMatch(/the only thing that can/i);
   });
 
+  // The plate is read off the chain, so these guard the two things a static
+  // mockup cannot get wrong: that it shows live terms rather than the frozen
+  // deployment record, and that it never invites a collection that would
+  // revert. NOW is two hours before the fixture order is due.
+  it("reads the hero plate off the chain and counts down to the next payment", async () => {
+    const { Home } = await import("./Home");
+    renderPage(<Home />);
+    const plate = document.querySelector(".writ-plate")?.textContent ?? "";
+    expect(plate).toMatch(/next payment in/i);
+    expect(plate).toMatch(/\d+:\d{2}:\d{2}/);        // a real duration, not a dash
+    expect(plate).toMatch(/1 of 25/);                   // periodsPaid, live
+    expect(plate).not.toMatch(/collect it/i);           // not due yet
+  });
+
+  it("only says the payment is collectable when execute would not revert", async () => {
+    const { Home } = await import("./Home");
+    const { makeOrder } = await import("../test/harness");
+
+    // Due, and funded for a payment plus its executor fee. The band becomes a
+    // link, because a reader one click from collecting is the demo.
+    orderData = { ...orderData, order: makeOrder({ nextDueAt: NOW - 60n }) };
+    renderPage(<Home />);
+    const go = document.querySelector(".writ-plate .wp-go");
+    expect(go?.textContent).toMatch(/collect it and keep the tip/i);
+    expect(go?.getAttribute("href")).toBe("/order/2?net=mainnet");
+    cleanup();
+
+    // Due, but the balance no longer covers amountPerPeriod + maxExecutorFee,
+    // so execute() reverts Underfunded. The plate must not advertise it.
+    orderData = { ...orderData, order: makeOrder({ nextDueAt: NOW - 60n, balance: 10_000n }) };
+    renderPage(<Home />);
+    const plate = document.querySelector(".writ-plate")?.textContent ?? "";
+    expect(plate).not.toMatch(/collect it/i);
+    expect(document.querySelector(".writ-plate .wp-go")).toBeNull();
+    // and it says why, rather than counting down to a stuck 00:00:00
+    expect(plate).toMatch(/underfunded/i);
+    expect(plate).not.toMatch(/00:00:00/);
+  });
+
   it("explains the three authorities", async () => {
     const { Home } = await import("./Home");
     renderPage(<Home />);

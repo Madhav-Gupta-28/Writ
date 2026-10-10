@@ -658,3 +658,33 @@ h1 em, h2 em, .display em { font-style: normal; color: var(--accent); }
   .tl-bars { height: 44px; gap: 3px; }
   .tl-foot { gap: 8px; }
 }
+
+/* The countdown band: the one part of the plate that moves on its own. It is
+   the proof that the order is real and not a mockup, so it gets the largest
+   mono on the page and the band keeps its height before the read lands. */
+.wp-next {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+  padding: 15px 22px; background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  opacity: 0; transition: opacity 0.5s var(--ease);
+}
+.wp-next[data-in="true"] { opacity: 1; }
+.wp-next .k {
+  font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: var(--label); color: var(--muted); white-space: nowrap;
+}
+.wp-next .v {
+  font-family: var(--mono); font-size: 1.15rem; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* Due is the only moment this plate is asking for something. */
+.wp-next[data-due="true"] { background: var(--accent-soft); }
+.wp-next[data-due="true"] .k { color: var(--accent); }
+.wp-next[data-due="true"] .v { font-size: 0.92rem; color: var(--accent); text-transform: uppercase; letter-spacing: var(--label); }
+
+/* When the order is collectable the band is a link, so it needs the affordance
+   a div does not: a hover, a pointer, and the arrow sitting on the baseline. */
+.wp-go { text-decoration: none; cursor: pointer; transition: background 0.18s var(--ease); }
+.wp-go:hover { background: var(--accent-line); text-decoration: none; }
+.wp-go .v { display: inline-flex; align-items: center; gap: 7px; }
+.wp-go:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

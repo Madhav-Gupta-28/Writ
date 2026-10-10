@@ -5,6 +5,13 @@
 // grid, and every colour comes from a token so they follow the theme rather
 // than carrying their own palette.
 
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { NETWORKS } from "../config";
+import { useOrder } from "../hooks";
+import { countdown, useLiveNow } from "../lib/clock";
+import { duration, short, usdc } from "../lib/format";
+import { isFunded, paymentsLeft } from "../lib/order";
 import { useSteps } from "../lib/reveal";
 
 const W = 760;
@@ -179,26 +186,39 @@ export function Frozen() {
 }
 
 /* ── The hero ────────────────────────────────────────────────────────────
-   The product, in one frame.
+   The product, in one frame, read off the chain.
 
    What this replaces was five boxes and two side notes — a diagram of roles,
    which is an org chart, not an artifact. Nearly blank as a screenshot, and a
    screenshot is what ends up in a judging deck.
 
    This is the order itself, set as what it is: a standing order on paper, with
-   an authority block under the rule. The four refusals land one at a time, and
-   the last line is the only one in the seal colour. Every figure is real —
-   order #2 on Arc mainnet.
+   an authority block under the rule. Four refusals land one at a time and the
+   last line is the only one in the seal colour.
+
+   It is live. Order #2 on Arc mainnet is read on mount and the countdown
+   ticks, so a judge who leaves the tab open watches a real obligation come
+   due. Two rules govern that, because this sits above the fold:
+
+     - Static first, never a spinner. The terms from the deployment record are
+       rendered on the first paint and swapped for chain values when the read
+       lands. A hero that spins is a hero that looks broken on a slow phone.
+     - Nothing may change height. Every row that exists after the read exists
+       before it, so the countdown band holds its space with a placeholder of
+       the same shape rather than appearing and shoving the page down.
 
    HTML rather than SVG because it is a document: it has to reflow on a phone
    and the type has to be the page's own type, not a drawing of type. */
 
-const TERMS: [string, string][] = [
-  ["pays", "0.01 USDC"],
-  ["every", "24 hours"],
-  ["to", "0x1258…C6c5"],
-  ["until", "1 Nov 2026"],
-];
+/* The terms as deployed (deployments/arc-mainnet.json). Only the key card can
+   change any of these, and it has not been used — but the chain is still the
+   authority, so these are a first paint, not a claim. */
+const RECORD = {
+  pays: "0.01 USDC",
+  every: "24 hours",
+  to: "0x1258…C6c5",
+  collected: "1 of 25",
+};
 
 /** The four things a thief with your wallet would try, and what Arc says. */
 const AUTHORITY: [string, string][] = [
@@ -209,35 +229,89 @@ const AUTHORITY: [string, string][] = [
 ];
 
 export function StandingOrder() {
-  // four terms, four refusals, then the line that is the whole point
-  const [ref, n] = useSteps<HTMLDivElement>(9, 340, "-40px");
+  // four terms, the countdown band, four refusals, then the closing line
+  const [ref, n] = useSteps<HTMLDivElement>(10, 260, "-40px");
+  const id = NETWORKS.mainnet.featuredOrder;
+  // dataUpdatedAt, not Date.now(): the latter is recomputed on every render, so
+  // the elapsed delta would always be zero and the countdown would only move in
+  // ten-second jumps when the query refetched.
+  const { data, dataUpdatedAt } = useOrder(NETWORKS.mainnet, id);
+  const now = useLiveNow(data?.now, dataUpdatedAt);
+
+  const o = data?.order;
+  const live = o
+    ? {
+        pays: usdc(o.amountPerPeriod),
+        every: duration(o.periodSeconds),
+        to: short(o.beneficiary),
+        collected: `${o.periodsPaid} of ${o.periodsPaid + Number(paymentsLeft(o))}`,
+      }
+    : RECORD;
+
+  // The order is collectable only when it is due, active, and still holds a
+  // payment plus its executor fee — the same three conditions `execute`
+  // enforces (§6.3). Claiming "anyone may collect" without the funding check
+  // would advertise a button that reverts.
+  const due = !!o && !!now && o.state === "Active" && now >= o.nextDueAt;
+  const collectable = due && !!o && isFunded(o);
+  // The header carries the chain's own state and the band carries due-ness;
+  // putting "due now" in both just said it twice.
+  const state = o ? o.state.toLowerCase() : "active";
 
   return (
     <div ref={ref} className="writ-plate">
       <div className="wp-head">
-        <span>Standing order №2</span>
-        <span className="wp-id">Arc mainnet · active</span>
+        <span>Standing order №{id?.toString() ?? "2"}</span>
+        <span className="wp-id">Arc mainnet · {state}</span>
       </div>
 
-      {TERMS.map(([k, v], i) => (
+      {(["pays", "every", "to", "collected"] as const).map((k, i) => (
         <div key={k} className="wp-line" data-in={n > i}>
           <span className="k">{k}</span>
-          <span className="v">{v}</span>
+          <span className="v">{live[k]}</span>
         </div>
       ))}
+
+      {/* Holds its space from the first paint so the read cannot shift it.
+          When the order is actually collectable the band becomes a link: a
+          reader one click from pressing Pay and keeping the tip is the whole
+          argument demonstrated rather than described, so it is the most
+          valuable thing on the page and gets the only live call to action. */}
+      {collectable ? (
+        <Link
+          to={`/order/${id}?net=mainnet`}
+          className="wp-next wp-go"
+          data-in={n > 4}
+          data-due="true"
+        >
+          <span className="k">due now</span>
+          <span className="v">collect it and keep the tip <ArrowRight size={14} /></span>
+        </Link>
+      ) : (
+        <div className="wp-next" data-in={n > 4} data-due="false">
+          {/* Three states, not two. A due order whose balance no longer covers a
+              payment plus its fee would otherwise count down to 00:00:00 and sit
+              there, which reads as a stuck clock rather than as the real
+              condition: it is due, and it needs money. */}
+          <span className="k">{due ? "due · underfunded" : "next payment in"}</span>
+          <span className="v num">
+            {!now || !o ? "—" : due ? "waiting on a top-up" : countdown(o.nextDueAt - now)}
+          </span>
+        </div>
+      )}
 
       <div className="wp-rule" data-in={n > 4}>
         <span>who may change where this money goes</span>
       </div>
 
       {AUTHORITY.map(([k, v], i) => (
-        <div key={k} className="wp-line wp-no" data-in={n > i + 4}>
+        <div key={k} className="wp-line wp-no" data-in={n > i + 5}>
           <span className="k">{k}</span>
           <span className="v stamp">{v}</span>
         </div>
       ))}
 
-      <div className="wp-total" data-in={n > 8}>
+      <div className="wp-total" data-in={n > 9}>
         <span className="k">one key card, held offline</span>
         <span className="v">the only thing that can</span>
       </div>
