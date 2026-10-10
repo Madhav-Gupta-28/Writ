@@ -768,36 +768,11 @@ h1 em, h2 em, .display em { font-style: normal; color: var(--accent); }
   background: var(--accent-soft); white-space: nowrap;
 }
 
-/* -------------------------------------------------------------- the footer
-   Every column is either a way to act on a claim or a way to check one. */
-.footer { border-top: 1px solid var(--border); background: var(--bg-2); margin-top: clamp(72px, 9vw, 120px); }
-.foot-grid {
-  display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 40px;
-  padding: clamp(40px, 5vw, 60px) 0 36px;
-}
-.foot-brand .brand { font-family: var(--display); font-size: 1.15rem; }
-.foot-brand p { margin-top: 12px; color: var(--muted); font-size: 0.9rem; line-height: 1.55; max-width: 34ch; }
-.foot-col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.foot-col .eyebrow { margin-bottom: 4px; }
-.foot-col a, .foot-col span { color: var(--text-2); font-size: 0.9rem; text-decoration: none; }
-.foot-col a { display: inline-flex; align-items: center; gap: 5px; transition: color 0.15s; }
-.foot-col a:hover { color: var(--accent); text-decoration: none; }
-.foot-rule {
-  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  padding: 18px 0 26px; border-top: 1px solid var(--border);
-  font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
-  letter-spacing: var(--label); color: var(--muted);
-}
-.foot-rule .mono { text-transform: none; letter-spacing: 0; }
 
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; }
   .hero-art::before { display: none; }
   .live-cta { grid-template-columns: 1fr; gap: 26px; }
-  .foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
-}
-@media (max-width: 560px) {
-  .foot-grid { grid-template-columns: 1fr; }
 }
 
 /* ========================================================== making an order
