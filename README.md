@@ -234,4 +234,4 @@ them in detail.
 
 ## Licence
 
-MIT.
+MIT. See [LICENSE](LICENSE).
