@@ -283,7 +283,7 @@ web/               the app — Vite + React, static, reads the chain directly
 deployments/       what is deployed, and the transactions proving each claim
 ```
 
-[`ARCHITECTURE.md`](ARCHITECTURE.md) — the full spec: every chain fact with a reproduction command, every invariant, and §16's comparison with the other Arc projects using this precompile.
+[`ARCHITECTURE.md`](ARCHITECTURE.md) — the full spec: every chain fact with a reproduction command, every invariant, and §15's comparison with the other Arc projects using this precompile.
 
 ## Build and run
 

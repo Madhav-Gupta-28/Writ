@@ -117,7 +117,7 @@ product it is a credit event arriving with no diagnostics — and counterparty
 freeze is the single most Arc-specific risk in any multi-period obligation.
 
 I could not find one project in the Arc Microgrants field that treats it as a
-first-class state (§16).
+first-class state (§15).
 
 ### 1.4 The failure this design is a response to
 
@@ -291,7 +291,7 @@ cast call 0x3600000000000000000000000000000000000000 "decimals()(uint8)"     --r
 
 USYC at zero supply is worth knowing before anyone proposes earning yield on
 idle obligation balances: USYC is gated to non-US institutions with a $100,000
-minimum. It is not available to this contract. See §15.
+minimum. It is not available to this contract. See §14.
 
 ### 3.4 The PQ Signature Verify precompile — live, open, and variant-specific
 
@@ -533,7 +533,7 @@ Historical `eth_getLogs` is not served. Two consequences:
 - I could not enumerate real `Blacklisted` events, so I cannot demonstrate the
   quarantine path against a genuinely frozen mainnet address. The demo is a
   mainnet fork test that mocks only `isBlacklisted` (§11.3 row 8). Stated in
-  §15.
+  §14.
 
 ### 3.10 Arc EVM divergences that bite this design
 
@@ -567,7 +567,7 @@ relevant to a contract that custodies USDC:
 | **Arc Privacy Sector (APS)** | *"On the roadmap and not yet available on Arc."* No confidential execution exists |
 | **Stablecoin Services** (multi-stablecoin gas, protocol paymaster, cross-currency settlement) | Not shipped |
 | **Native post-quantum transaction signing** | Future milestone, likely EIP-8141 frame transactions, EIP unfinalised. PQ is an **application-layer** primitive today — which is exactly what this design uses |
-| PQ hardware wallet support | Does not exist. The key card is browser-generated. See §15 |
+| PQ hardware wallet support | Does not exist. The key card is browser-generated. See §14 |
 
 ---
 
@@ -1420,7 +1420,7 @@ cast call 0x1800000000000000000000000000000000000004 \
 | 3 | **Both** keys compromised | total loss of the obligation balance | not mitigated. Stated in §9.3 |
 | 4 | Beneficiary blocklisted | payments stop, nothing burns | `Quarantined`; `resolveQuarantine` redirects or refunds |
 | 5 | Beneficiary self-destructs | non-zero-value call reverts (§3.10) | `execute` reverts `TransferFailed`; payer uses the 30-day exit, or the key card amends |
-| 6 | **Writ itself blocklisted** | every outbound transfer reverts; all balances frozen | **not mitigable.** Circle controls the blocklist. Stated in §9.2 and §15 |
+| 6 | **Writ itself blocklisted** | every outbound transfer reverts; all balances frozen | **not mitigable.** Circle controls the blocklist. Stated in §9.2 and §14 |
 | 7 | Nobody executes | payments simply late | permanently callable by anyone; the fee makes it worth doing; a 15-line cron ships as a convenience |
 | 8 | Obligation runs dry | `execute` reverts `Underfunded` | payments pause; anyone may `fund`; nothing is lost |
 | 9 | Gas spikes to the 20,000 Gwei ceiling | execution could become unprofitable | metered reimbursement tracks it; `maxExecutorFee` caps the payer's exposure; worst case payments pause until the spike passes |
@@ -1879,28 +1879,7 @@ dollar in.
 
 ---
 
-## 14. Build order
-
-Eight days, 2026-10-06 → 2026-10-13. Submission deadline 2026-10-14 23:59 ET;
-review is rolling and earlier submissions get earlier answers.
-
-| Day | Work | Gate |
-| --- | --- | --- |
-| **1 — Oct 6** | Scaffold with Arc Foundry. Port the §11.5 probe harness. Write `Writ.sol` through `execute`. **Start the USDC transfer onto Arc today — it blocks everything** | contract compiles; probe harness reproduces §3.4 |
-| **2 — Oct 7** | PQ path: `digestFor`, `_requirePq`, `amend`, `cancelByPq`, `rotateKey`, `resolveQuarantine`, `vetoWalletCancel`. Wallet-cancel dance. `reclaim` | all entry points present |
-| **3 — Oct 8** | §11.1 unit suite with real noble fixtures. §11.2 adversarial suite in full — especially the five replay tests and the inverted-constant mutation | suite green; mutation test fails when the constant is inverted |
-| **4 — Oct 9** | Testnet deploy. Full §7 flow with a real key card. §11.3 fork tests. **Replace every ESTIMATE in §6.1 with a measured receipt** | one real PQ amendment landed on testnet |
-| **5 — Oct 10** | §11.5 free mainnet rehearsal via state override, then **mainnet deploy** + Sourcify verify. Open one live demo obligation and execute one real period | mainnet address verified; `Paid` event on chain |
-| **6 — Oct 11** | Frontend: key-card generation with forced download, open flow, amend flow with the signing spinner, runway display. Mobile check | a stranger can complete an amendment on mainnet in a browser |
-| **7 — Oct 12** | README: the "What it uses Arc for" table with gas and real tx links, the §6.1 cost comparison, §16 naming every competitor, honest limits from §9.3 and §15. **Strip internal docs from the public tree** | repo is clean; no internal planning files |
-| **8 — Oct 13** | Demo video (≤3 min, no AI voice). **Submit.** | submitted |
-
-Day 1's funding step is the only hard external dependency. If the USDC does not
-arrive, days 5–8 cannot happen.
-
----
-
-## 15. Open items and known limits
+## 14. Open items and known limits
 
 1. **`REIMBURSE_OVERHEAD` is an estimate.** Calibrate from a real testnet
    receipt on day 4. Too low and executors are slightly underpaid; too high and
@@ -1937,7 +1916,7 @@ arrive, days 5–8 cannot happen.
 
 ---
 
-## 16. Competitive position, stated honestly
+## 15. Competitive position, stated honestly
 
 The Arc Microgrants field is large — roughly 700 registered hackers — and the
 post-quantum niche is the most contested differentiated category in it, because
@@ -1966,7 +1945,7 @@ prior art reads better than pretending it does not exist.
 
 ---
 
-## 17. Sources
+## 16. Sources
 
 **Measured on Arc mainnet 2026-10-06, block 24,510,277** — chain id, gas price,
 USDC / EURC / USYC supplies, `blacklister()`, `isBlacklisted`, EIP-3009 and
@@ -1988,4 +1967,4 @@ EIP-8141 (draft).
 
 **Libraries** — `@noble/post-quantum@0.7.1`.
 
-**Prior art** — the six projects in §16, read from their public repositories.
+**Prior art** — the six projects in §15, read from their public repositories.
