@@ -268,6 +268,8 @@ The invariant suite asserts the two things that must never break together: **`to
 - **The executor is paid more than it spent, and never more than the payer allowed.** The 18→6 decimal conversion is integer division, so it truncates; the flat 0.01 USDC tip added on top is far larger than anything lost that way. The total is then capped twice — by the payer's `maxExecutorFee` and by the order's own balance — so collecting cannot drain the order.
 - **Reentrancy** guarded on every entry point, with accounting written before transfers regardless.
 - **A frozen recipient is a state, not a failure.** The blocklist is read before the transfer, so the order parks with nothing burned instead of reverting.
+- **The post-quantum guarantee covers changing the order, not spending under it.** Funding and `execute` are ordinary ECDSA. That is the deliberate split: a ten-year promise needs the *rule* to outlive today's cryptography, while each payment only needs to be cheap and collectable today.
+- **`reclaim` does not settle overdue periods first.** Thirty days after the end date the payer recovers whatever is left, including periods that came due and nobody collected. Anyone can collect, so it is avoidable — and the app shows the recipient a **collect before** date — but it is a real edge, not a rounding error.
 - **The key card never leaves the browser.** Generated client-side, encrypted with PBKDF2 + AES-GCM, signed in a Web Worker. There is no server to leak it.
 
 ## Repository layout
@@ -323,13 +325,7 @@ FORK_RPC=https://rpc.mainnet.arc.io forge test --match-path 'test/*Fork*'
 - **A keeper for the impatient.** Payment is already permissionless and profitable, so the schedule needs no one. A hosted keeper would only shorten the gap between *due* and *collected*, and [`scripts/keeper.ts`](scripts/keeper.ts) is the reference anyone can run.
 - **Payroll, not one order.** The mechanism is per-obligation; a batch `execute` across many due orders in one transaction is the natural extension and needs no new Arc primitive.
 - **EURC and the rest.** The reimbursement maths assumes the payment token is the gas token. Paying in a token that is not the gas token needs a flat tip instead, which the fee cap already expresses.
-- **A professional audit** before anyone should trust this with a real salary. The limits are written down rather than discovered: see below.
-
-## What this does not claim
-
-- **Spending is not quantum-safe.** Funding and execution are ordinary ECDSA. The post-quantum property covers **changing the order**, which is the thing a ten-year promise needs to survive.
-- **`reclaim` does not settle overdue periods first.** Thirty days after the end date the payer can take back what is left, including payments that came due and nobody collected. The app shows the recipient a **collect before** date; anyone can collect, so this is avoidable — but it is a real limit.
-- **One audit, by us.** Eleven adversarial probes found one real bug, which is fixed and tested. That is not a professional audit.
+- **A professional audit** before anyone should trust this with a real salary. Eleven adversarial probes of our own found one real bug, fixed and tested — which is not the same thing.
 
 ## Licence
 
