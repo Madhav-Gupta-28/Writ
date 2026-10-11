@@ -9,7 +9,7 @@
 // so the network is now stated exactly once, in the footer. A fact repeated on
 // every page in three places is furniture, not information.
 
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ArrowUpRight, ScrollText, Search } from "lucide-react";
 import { NETWORKS } from "./config";
@@ -33,6 +33,21 @@ function FindOrder() {
       <input inputMode="numeric" placeholder="Find order #" value={id} onChange={(e) => setId(e.target.value.replace(/\D/g, ""))} aria-label="Order number" />
     </form>
   );
+}
+
+/**
+ * Every page opens at its top. The router swaps pages without a reload, so the
+ * browser would otherwise keep the old page's scroll position, and on Back it
+ * restores one. A link to a section (#pays on /how) keeps its jump.
+ */
+if (typeof history !== "undefined" && "scrollRestoration" in history) history.scrollRestoration = "manual";
+
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useLayoutEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
 
 /**
@@ -71,6 +86,7 @@ function Footer() {
 export function App() {
   return (
     <div className="app">
+      <ScrollToTop />
       <header className="topbar">
         <div className="container topbar-inner">
           <NetLink to="/" className="brand"><span className="brand-mark"><ScrollText size={18} /></span>Writ</NetLink>
