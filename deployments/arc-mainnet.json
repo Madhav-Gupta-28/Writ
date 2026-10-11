@@ -1,38 +1,35 @@
 {
   "chainId": 5042,
-  "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
-  "deployTx": "0xa0c7156a21b3e275df04bf4dfde99982ac484002e5c7434bcd5643b2e6327155",
-  "deployBlock": 24743944,
-  "deployGas": 2512749,
+  "writ": "0x9701970268ee7a5933a2d688d25f143d5099a3db",
+  "deployTx": "0xfa7ba3c27978ad2cee857d4d9901eec9860ab3e0c41ac0629a81524295d5dd9f",
+  "deployBlock": 25458604,
+  "deployGas": 2526808,
   "deployer": "0x4163CfEC8eC6cF2f59bB5706533bC3841f8eDb8e",
-  "runtimeKeccak256": "0xff7e06f46d0883be5d723c6b8614036dbe5eaf105f7cd73fd6f94ac8eff2fe9f",
+  "runtimeKeccak256": "0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c",
   "source": "contracts/src/Writ.sol as of the commit that adds this file (solc 0.8.30, via_ir, optimizer 200, evm prague)",
   "explorer": "https://explorer.arc.io",
   "note": "MAINNET. Runtime bytecode verified equal to the local forge build.",
+  "previous": [
+    {
+      "writ": "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
+      "deployTx": "0xa0c7156a21b3e275df04bf4dfde99982ac484002e5c7434bcd5643b2e6327155"
+    }
+  ],
   "liveOrder": {
-    "id": "2",
-    "beneficiary": "0x1258B1672e410636B2330cB9e7e6370F43B6C6c5",
+    "id": "1",
+    "beneficiary": "0xcA6AECadb976e028604EccEE437Ce9cB6Ea8b584",
     "amountPerPeriod": "10000",
     "periodSeconds": "86400",
-    "startAt": "2026-10-07T14:27:58Z",
+    "startAt": "2026-10-11T19:08:39Z",
     "endTime": "2026-11-01T00:00:00Z",
     "maxExecutorFee": "5000",
-    "funding": "375000",
-    "payments": "25",
-    "pqKey": "0x753f6ff31afbce41bad1800da8f679ad8a3dd14e458fc65e0736c8404852a9e3",
-    "openTx": "0x2e42053474b77d7204c418fe29cf88e887148a083efda954c3369d4b56be8781",
-    "openLink": "https://explorer.arc.io/tx/0x2e42053474b77d7204c418fe29cf88e887148a083efda954c3369d4b56be8781",
-    "firstPaymentTx": "0x2edb277f96eeecfd04de7c6388b959dceb127ce37071eee626936807f344e246",
-    "firstPaymentLink": "https://explorer.arc.io/tx/0x2edb277f96eeecfd04de7c6388b959dceb127ce37071eee626936807f344e246",
+    "funding": "315000",
+    "payments": "21",
+    "pqKey": "0x6058fc2b7cad54d2e4a771df02bc2baccd053a4adac23285dc2244a6b7f3aa77",
+    "openTx": "0x48bfe9ce5daa9b29d406b047099199fda855c116bdba6713788ba3fb9ded0297",
+    "openLink": "https://explorer.arc.io/tx/0x48bfe9ce5daa9b29d406b047099199fda855c116bdba6713788ba3fb9ded0297",
+    "firstPaymentTx": "0xd9044d50ad0d879d142b855c8ec8e646a647e3749879ca8848200a6277a1af12",
+    "firstPaymentLink": "https://explorer.arc.io/tx/0xd9044d50ad0d879d142b855c8ec8e646a647e3749879ca8848200a6277a1af12",
     "note": "Left running. Key card and beneficiary key are in .keycards/ (git-ignored), not in the repo."
-  },
-  "sourcify": {
-    "match": "exact_match (creation and runtime)",
-    "verificationJob": "b81c6f68-f06f-4f83-96a4-b4cee33a2356",
-    "lookup": "https://sourcify.dev/#/lookup/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652",
-    "repo": "https://repo.sourcify.dev/5042/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652"
-  },
-  "addressNote": "Same address as the old core-slice deployment on TESTNET (same deployer, nonce 0 on both chains). Different code: this is the full contract.",
-  "rehearsal": "scripts/rehearse.ts --mainnet passed 13/13 at block 24743854 before deploying (eth_call + state overrides, nothing sent)",
-  "authCheck": "deployments/auth-check-mainnet.json"
+  }
 }

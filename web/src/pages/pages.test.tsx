@@ -9,9 +9,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
+import { NETWORKS } from "../config";
 import { makeOrder, NOW, renderPage, TEST_BENEFICIARY, TEST_PAYER, testNet } from "../test/harness";
 
 const stubClient = { getChainId: async () => testNet.chain.id } as never;
+
+// The live order id comes from config, not a literal: it changes on every
+// redeploy, and a hard-coded 2 made these tests fail for the wrong reason.
+const LIVE = NETWORKS.mainnet.featuredOrder!.toString();
 
 let orderData = { order: makeOrder(), now: NOW, gasPrice: 20_000_000_010n };
 
@@ -46,9 +51,9 @@ describe("Home", () => {
     const { Home } = await import("./Home");
     renderPage(<Home />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/not even your wallet can redirect/i);
-    // The featured order is mainnet #2.
+    // Whichever order the deployment record features.
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(links.some((h) => h?.includes("/order/2"))).toBe(true);
+    expect(links.some((h) => h?.includes(`/order/${LIVE}`))).toBe(true);
   });
 
   // The hero artifact is the whole pitch: a judge who reads nothing but the
@@ -92,7 +97,7 @@ describe("Home", () => {
     renderPage(<Home />);
     const go = document.querySelector(".writ-plate .wp-go");
     expect(go?.textContent).toMatch(/collect it and keep the tip/i);
-    expect(go?.getAttribute("href")).toBe("/order/2?net=mainnet");
+    expect(go?.getAttribute("href")).toBe(`/order/${LIVE}?net=mainnet`);
     cleanup();
 
     // Due, but the balance no longer covers amountPerPeriod + maxExecutorFee,

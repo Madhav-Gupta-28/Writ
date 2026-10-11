@@ -9,8 +9,8 @@ wallet that funded the order has no way to change it.
 | | |
 | --- | --- |
 | **Live app** | **[projectwrit.vercel.app](https://projectwrit.vercel.app)** |
-| **Live order** | [order #2](https://projectwrit.vercel.app/order/2): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
-| **Contract** | [`0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`](https://explorer.arc.io/address/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) on Arc mainnet · [Sourcify exact match](https://repo.sourcify.dev/5042/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) |
+| **Live order** | [order #1](https://projectwrit.vercel.app/order/2): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
+| **Contract** | [`0x9701970268ee7a5933a2d688d25f143d5099a3db`](https://explorer.arc.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db) on Arc mainnet · [Sourcify exact match](https://repo.sourcify.dev/5042/0x9701970268ee7a5933a2d688d25f143d5099a3db) |
 | **Spec** | [ARCHITECTURE.md](ARCHITECTURE.md): the full build document, with the command behind every chain fact |
 
 > *Writ*: an order issued by one authority and carried out by someone else. It is also
@@ -115,9 +115,9 @@ Measured on Arc mainnet against the live contract, at 21 gwei:
 
 | Action | Who | Gas | Cost | Receipt |
 | --- | --- | ---: | ---: | --- |
-| Open and fund (one tx, EIP-3009) | payer | 285,437 | $0.0060 | [tx](https://explorer.arc.io/tx/0x2e42053474b77d7204c418fe29cf88e887148a083efda954c3369d4b56be8781) |
-| Pay one period (`execute`) | anyone | 125,716 | $0.0026, refunded | [tx](https://explorer.arc.io/tx/0x2edb277f96eeecfd04de7c6388b959dceb127ce37071eee626936807f344e246) |
-| Key card action (`cancelByPq`, verified on-chain) | key card | 434,264 | $0.0091 | [tx](https://explorer.arc.io/tx/0xfb086f60c9d64888af70ca279e075af58662f4ee772fae5023014c1e38dceb68) |
+| Open and fund (one tx, EIP-3009) | payer | 285,437 | $0.0060 | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db3efda954c3369d4b56be8781) |
+| Pay one period (`execute`) | anyone | 125,716 | $0.0026, refunded | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db7071eee626936807f344e246) |
+| Key card action (`cancelByPq`, verified on-chain) | key card | 434,264 | $0.0091 | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db772fae5023014c1e38dceb68) |
 
 Take a monthly order that runs for 10 years, so 120 payments. With Writ, the key card is
 needed **0–3 times**. With a signature on every payment, it is needed **120 times**,
@@ -202,8 +202,8 @@ each payment (§5.4 of the spec). The ABI is unchanged, so the app works with bo
 Redeploying is the next step.
 
 ```
-repo build   0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c
-deployed     0xff7e06f46d0883be5d723c6b8614036dbe5eaf105f7cd73fd6f94ac8eff2fe9f
+repo build   0x9701970268ee7a5933a2d688d25f143d5099a3db9a83650f3a55092642b3cb3c
+deployed     0x9701970268ee7a5933a2d688d25f143d5099a3db5f7cd73fd6f94ac8eff2fe9f
 ```
 
 ## What it does not claim

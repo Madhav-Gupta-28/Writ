@@ -53,10 +53,10 @@ export const NETWORKS: Record<NetworkName, Network> = {
     name: "mainnet",
     label: "Arc Mainnet",
     chain: arcMainnet,
-    writ: "0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652", // deployments/arc-mainnet.json
+    writ: "0x9701970268ee7a5933a2d688d25f143d5099a3db", // deployments/arc-mainnet.json
     explorer: "https://explorer.arc.io",
     rpc: "https://rpc.mainnet.arc.io",
-    featuredOrder: 2n,
+    featuredOrder: 1n,
   },
 };
 
