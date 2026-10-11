@@ -19,3 +19,26 @@ arc_testnet = "https://rpc.testnet.arc.io"   # public, anonymous (ARCHITECTURE.m
 #   FOUNDRY_INVARIANT_RUNS=256 FOUNDRY_INVARIANT_DEPTH=500 forge test --match-contract WritInvariantTest
 runs  = 64
 depth = 64
+
+# Arc (5042) is live on Etherscan V2 at arc.etherscan.io, but forge 1.5.1 will
+# not verify against it: --chain validates against a hardcoded list that has no
+# Arc, --chain 5042 answers "Chain 5042 not supported", and --chain-id 5042
+# with an explicit --verifier-url still answers "No known Etherscan API URL".
+# This section is kept so a later forge can use it, but it does not work today.
+#
+# What does work is posting the standard JSON input to the V2 API directly
+# (one key serves all chains):
+#
+#   ETHERSCAN_API_KEY=... forge verify-contract <addr> src/Writ.sol:Writ \
+#     --show-standard-json-input > sji.json
+#   curl -X POST 'https://api.etherscan.io/v2/api?chainid=5042' \
+#     --data-urlencode module=contract --data-urlencode action=verifysourcecode \
+#     --data-urlencode codeformat=solidity-standard-json-input \
+#     --data-urlencode contractname=src/Writ.sol:Writ \
+#     --data-urlencode compilerversion=v0.8.30+commit.73712a01 \
+#     --data-urlencode contractaddress=<addr> \
+#     --data-urlencode "sourceCode@sji.json" --data-urlencode apikey=$ETHERSCAN_API_KEY
+#
+# then poll action=checkverifystatus with the returned guid.
+[etherscan]
+arc = { key = "${ETHERSCAN_API_KEY}", chain = 5042, url = "https://api.etherscan.io/v2/api?chainid=5042" }

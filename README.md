@@ -10,7 +10,7 @@ wallet that funded the order has no way to change it.
 | --- | --- |
 | **Live app** | **[projectwrit.vercel.app](https://projectwrit.vercel.app)** |
 | **Live order** | [order #1](https://projectwrit.vercel.app/order/1): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
-| **Contract** | [`0x9701970268ee7a5933a2d688d25f143d5099a3db`](https://explorer.arc.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db) on Arc mainnet · [Sourcify exact match](https://repo.sourcify.dev/5042/0x9701970268ee7a5933a2d688d25f143d5099a3db) |
+| **Contract** | [`0x9701970268ee7a5933a2d688d25f143d5099a3db`](https://explorer.arc.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db) on Arc mainnet · verified: [Sourcify](https://repo.sourcify.dev/5042/0x9701970268ee7a5933a2d688d25f143d5099a3db) exact match · [Etherscan](https://arc.etherscan.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db#code) |
 | **Spec** | [ARCHITECTURE.md](ARCHITECTURE.md): the full build document, with the command behind every chain fact |
 
 > *Writ*: an order issued by one authority and carried out by someone else. It is also
@@ -196,8 +196,10 @@ npm --prefix web test     # web
 ## Deployed version
 
 The deployed contract **is** this repo, built from this source. Sourcify reports an
-exact match on both the creation and the runtime bytecode, and `npm run sync -- --mainnet`
-refuses to pass unless the local build, the deployment record and the chain all agree:
+exact match on both the creation and the runtime bytecode, [Etherscan shows the source
+and ABI](https://arc.etherscan.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db#code),
+and `npm run sync -- --mainnet` refuses to pass unless the local build, the deployment
+record and the chain all agree:
 
 ```
 repo build   0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c
