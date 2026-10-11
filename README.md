@@ -2,223 +2,228 @@
 
 **What's written, stays written.**
 
-A standing USDC order on Arc that pays itself. Only a post-quantum key can rewrite it.
-
-> *Writ* — an order issued by an authority and carried out by someone else.
-> Also the old past participle of *write*: that which is written, and stays written.
+A standing USDC payment order on Arc. You fund it once and it pays itself on schedule.
+Only a post-quantum key card, verified on-chain by Arc, can change or cancel it. The
+wallet that funded the order has no way to change it.
 
 | | |
 | --- | --- |
-| **Live app** | **[https://writ-cyan.vercel.app](https://writ-cyan.vercel.app)** |
-| **Live order on Arc mainnet** | [order #2](https://writ-cyan.vercel.app/order/2?net=mainnet) — 0.01 USDC every day |
-| **Contract** | [`0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`](https://explorer.arc.io/address/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) · [Sourcify exact match](https://repo.sourcify.dev/5042/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) · see **Deployed version** below |
-| **Spec** | [ARCHITECTURE.md](ARCHITECTURE.md) — 1,975 lines, every chain fact with the command that proves it |
+| **Live app** | **[projectwrit.vercel.app](https://projectwrit.vercel.app)** |
+| **Live order** | [order #2](https://projectwrit.vercel.app/order/2): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
+| **Contract** | [`0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`](https://explorer.arc.io/address/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) on Arc mainnet · [Sourcify exact match](https://repo.sourcify.dev/5042/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652) |
+| **Spec** | [ARCHITECTURE.md](ARCHITECTURE.md): the full build document, with the command behind every chain fact |
+
+> *Writ*: an order issued by one authority and carried out by someone else. It is also
+> the old past participle of *write*.
+
+---
+
+## The idea: three powers, held apart
+
+Most payment tools let one key do everything. Writ splits the power three ways, and
+**the split is the product**:
+
+```mermaid
+flowchart LR
+    W["Funding wallet<br/>(ordinary ECDSA)"]
+    A["Anyone"]
+    K["Key card<br/>(SLH-DSA, kept offline)"]
+    O[("Writ order<br/>on Arc")]
+
+    W -- "open · fund · reclaim<br/>30-day cancel the key card can veto" --> O
+    A -- "execute: pay one due period,<br/>get the gas back plus a tip" --> O
+    K -- "amend · cancel · rotate key<br/>resolve quarantine · veto" --> O
+    O -- "USDC every period" --> B["Beneficiary"]
+```
+
+| Power | Who holds it | What it can do |
+| --- | --- | --- |
+| **Fund** | the payer's wallet | Open and top up an order. It **cannot** change the recipient, the amount or the period, and it cannot stop payments. No function in the contract lets it. |
+| **Execute** | anyone | Pay a due period. The order refunds the caller's gas plus a tip, capped by the order. No keeper or server is needed. |
+| **Amend** | the key card | Change, cancel or re-key the order. Each action needs a 7,856-byte `SLH-DSA-SHA2-128s` signature that Arc's precompile verifies on-chain. |
+
+If someone steals your everyday wallet, they still can't redirect your payroll: the power to
+redirect lives on a different key, under different cryptography, and that key was never
+on the compromised machine.
 
 ---
 
 ## Try to steal it
 
-There is a real order running on Arc mainnet right now, paying real USDC on a
-schedule. Open it and press **Try to hijack this order**.
+Open the [live order](https://projectwrit.vercel.app/order/2) and press **Try to hijack
+this order**. The app runs what a thief holding the funding wallet would try, as free
+`eth_call` simulations against the live contract. Nothing is signed and nothing is sent.
 
-The app runs the four things a thief holding the funding wallet would actually
-try, as free `eth_call` simulations against the live contract. Nothing is signed
-and nothing is sent:
-
-| What the thief tries | What the chain says |
+| The thief tries to… | What the chain says |
 | --- | --- |
-| Send all future payments to my address | **Blocked** — needs this order's key card. A wallet can't do it. |
-| Cancel the order and refund it to me | **Blocked** — needs the key card. |
-| Replace the key card with my own | **Blocked** — needs the key card it is replacing. |
-| Pull the money out right now | **Blocked** — needs 30 days' public notice, which the key card can veto. |
+| Send all future payments to their own address | **Blocked**: it needs this order's key card |
+| Cancel the order and take a refund | **Blocked**: it needs the key card |
+| Replace the key card with their own | **Blocked**: it needs the key card being replaced |
+| Pull the money out right now | **Blocked**: it needs 30 days' public notice, which the key card can veto |
 
-A stolen wallet can add money to the order. It cannot change who gets paid, and
-it cannot stop the payments. That is the whole product, and you can check it
-yourself in about a minute without spending anything.
+If a payment is due, you can also press **Pay now**: anyone can, and the order refunds you.
 
-While you are there: if a payment is due, press **Pay now**. Anyone can, and the
-order reimburses your gas plus a small tip.
+---
 
-## What it is
+## How one payment works
 
-You have an obligation that repeats — a vendor retainer, payroll, a
-subscription, a coupon. You fund it once. From then on it pays itself: any
-stranger can trigger a due payment and is reimbursed their gas plus a tip out of
-the order, so there is no keeper to run and no key to keep online.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor S as Anyone
+    participant W as Writ
+    participant U as USDC (Arc)
+    S->>W: execute(id)
+    W->>W: due? funded for payment + fee?
+    W->>U: isBlacklisted(beneficiary)
+    alt recipient frozen
+        W->>W: state = Quarantined (no gas-burning transfer)
+    else recipient fine
+        W->>U: transfer(beneficiary, amount)
+        W-->>S: event Paid(id, to, amount, period, ref)
+    end
+    W->>U: transfer(caller, gas used × gas price + tip, capped)
+```
 
-Changing it is the part that matters. Redirecting the beneficiary, changing the
-amount, or cancelling requires an `SLH-DSA-SHA2-128s` signature that Arc verifies
-on-chain through its post-quantum precompile. **The wallet that funded the order
-cannot do any of those things.** There is no function for it.
+USDC is Arc's gas token, so the caller's gas is refunded **in the same asset as the
+payment**. That makes an order's runway an exact dollar count, gas included.
 
-So if your operations key leaks, the attacker cannot reroute your payroll. The
-authority to redirect money sits on different cryptography, on a key that was
-never on the compromised machine. That is useful today, with no quantum computer
-anywhere — and the post-quantum part is what keeps it true in thirty years.
+## The life of an order
 
-## Why this shape, and not the obvious one
+```mermaid
+stateDiagram-v2
+    [*] --> Active: open / openWithAuthorization
+    Active --> Active: execute (one period) · fund · amend · rotateKey
+    Active --> Quarantined: execute finds the recipient frozen
+    Quarantined --> Active: resolveQuarantine (key card names a new recipient)
+    Active --> Completed: last period paid
+    Active --> Cancelled: cancelByPq (key card)
+    Active --> Cancelled: finalizeWalletCancel, after 30 days with no veto
+    Quarantined --> Cancelled: resolveQuarantine to nobody · cancelByPq · wallet cancel · reclaim
+    Active --> Cancelled: reclaim, 30 days after the end date
+```
 
-Arc is the first public chain with on-chain post-quantum signature verification
-live in production, and several projects have found it. Every one of them puts
-the signature on the **action** — money only moves when a 7,856-byte signature is
-presented.
+---
 
-That has two costs. A verification is **433,953 gas** (measured), so every single
-payment carries it. And more seriously, the post-quantum key becomes a dependency
-of *getting paid* — fine for a savings box you only open when present, wrong for
-an obligation that has to keep paying for years while nobody is watching.
+## Why the key card guards the rule, not the payment
 
-Writ inverts it. The post-quantum key authorises the **rule**, once. Execution is
-permissionless and cheap forever after.
+Other projects using Arc's post-quantum precompile require a signature on **every
+movement of money**. Writ requires it only to **change the rule**. After that, payments
+are permissionless and cheap.
 
-| | Authority | Gas | Cost | Times over a 10-year monthly order |
-| --- | --- | --- | --- | --- |
-| `execute` | nobody — permissionless | ~110,000 | $0.0022 | 120 |
-| `amend` / `cancel` / `rotateKey` | **SLH-DSA only** | **433,953** | **$0.0087** | 0–3 |
+Measured on Arc mainnet against the live contract, at 21 gwei:
 
-Lifetime gas: **$0.29**, against **$1.04** for the signature-on-every-payment
-shape — and the key is needed zero times instead of 120.
+| Action | Who | Gas | Cost | Receipt |
+| --- | --- | ---: | ---: | --- |
+| Open and fund (one tx, EIP-3009) | payer | 285,437 | $0.0060 | [tx](https://explorer.arc.io/tx/0x2e42053474b77d7204c418fe29cf88e887148a083efda954c3369d4b56be8781) |
+| Pay one period (`execute`) | anyone | 125,716 | $0.0026, refunded | [tx](https://explorer.arc.io/tx/0x2edb277f96eeecfd04de7c6388b959dceb127ce37071eee626936807f344e246) |
+| Key card action (`cancelByPq`, verified on-chain) | key card | 434,264 | $0.0091 | [tx](https://explorer.arc.io/tx/0xfb086f60c9d64888af70ca279e075af58662f4ee772fae5023014c1e38dceb68) |
+
+Take a monthly order that runs for 10 years, so 120 payments. With Writ, the key card is
+needed **0–3 times**. With a signature on every payment, it is needed **120 times**,
+and someone has to be present each time to get paid.
+
+---
 
 ## What it uses Arc for
 
 | Arc feature | How Writ uses it |
 | --- | --- |
-| **PQ Signature Verify precompile** `0x1800…0004` | Every amendment, cancellation and key rotation is authorised by an `SLH-DSA-SHA2-128s` signature the chain verifies itself. No other chain has this. |
-| **USDC as native gas** | The executor's fee is **reserved in the same asset as the payment**, so an order's runway is a true dollar count: "this order can make 24 more payments" is exact, gas included. On a chain with a volatile gas token you cannot express that, because part of the cost is in a different asset. |
-| **USDC blocklist** (`isBlacklisted`) | Read free before every payment. A frozen recipient becomes a logged `Quarantined` state the key card resolves — instead of Arc's gas-burning, receipt-less revert. No other project in this hackathon models a freeze as a settlement state. |
-| **EIP-3009** `receiveWithAuthorization` | Open and fund an order in one transaction, no `approve`, no front-running. |
-| **Sub-second deterministic finality** | A payment is final when the receipt arrives. |
+| **Post-quantum signature precompile** `0x1800…0004` | Verifies every amendment, cancellation and key rotation on-chain with `SLH-DSA-SHA2-128s` |
+| **USDC as native gas** | The executor fee is refunded and reserved in USDC, the same asset as the payment |
+| **USDC blocklist** (`isBlacklisted`) | Read free before each payment. A frozen recipient becomes a logged `Quarantined` state instead of a gas-burning revert |
+| **EIP-3009** `receiveWithAuthorization` | Opens and funds an order in one transaction, with no `approve` step |
+| **Deterministic finality** | A payment is final when its receipt arrives |
 
-## Five things about Arc that are not in Circle's docs
+### Five things about Arc we measured that aren't in the docs
 
-Measured here, not assumed. Reproduction commands are inline in
-[§3 of the spec](ARCHITECTURE.md).
+Every one comes with its reproduction command in [§3 of the spec](ARCHITECTURE.md).
 
-1. **`CallFrom` is gated by a caller allowlist.** A contract at any other address
-   gets `"unauthorized caller"`. Proven by injecting identical bytecode at Memo's
-   address, where the same call succeeds.
-2. **`CallFrom` also requires `sender == tx.origin`** — revert string
-   `"sender spoofing requires tx.origin as sender"`. So Arc's Memo and
-   Multicall3From predeploys are **externally-owned-account only, and no contract
-   can ever attach a native memo or batch.** This removed a component of the
-   first draft.
-3. **The PQ precompile reverts on malformed lengths** rather than returning
-   false: `vk` must be exactly 32 bytes, `sig` exactly 7,856. Message length is
-   free.
-4. **Arc accepts FIPS-205 "pure" SLH-DSA and silently rejects the "internal"
-   variant.** Sign with the wrong one and every signature you ever make fails.
-5. **The public RPC is not an archive node**, and on an anvil fork the real USDC
-   splits in two: `decimals` and `balanceOf` work, while `totalSupply`,
-   `transfer` and `isBlacklisted` revert with empty data. `execute`'s first USDC
-   call is `isBlacklisted`, so a fork cannot run Writ against the real token at
-   all.
+1. **`CallFrom` only accepts allowlisted callers**, and it also requires `sender == tx.origin`. So no contract can use Arc's Memo or Multicall3From predeploys, which is why Writ carries its reference in its own `Paid` event.
+2. **The PQ precompile reverts on bad lengths** instead of returning false. `vk` must be exactly 32 bytes and `sig` exactly 7,856. Writ checks the length first, so callers get a clear error.
+3. **Arc accepts only "pure" SLH-DSA** (FIPS 205) and rejects the "internal" variant without saying so. A signer that uses the wrong one fails on every signature.
+4. **The public RPC isn't an archive node.** Historical `eth_getLogs` fails, so the app reads current state through view functions.
+5. **On an anvil fork, the real USDC half-works.** `balanceOf` works, while `transfer` and `isBlacklisted` revert. So the fork tests replay the real precompile's verdict instead (see Tests).
+
+---
+
+## The app
+
+The app is a static site with no backend and no indexer. It reads Arc mainnet directly,
+and key cards are created and used in the browser.
+
+| Page | What you can do |
+| --- | --- |
+| [`/`](https://projectwrit.vercel.app) | See the live order card, read straight from the chain |
+| [`/how`](https://projectwrit.vercel.app/how) | See the three ideas, each with a link to check it on-chain |
+| [`/open`](https://projectwrit.vercel.app/open) | Create an order: set who gets paid, how much and how often, make a key card, then sign once |
+| [`/order/:id`](https://projectwrit.vercel.app/order/2) | See its progress and pay it if due, try to hijack it, use the key card, or manage it as the payer |
+
+**Key cards** are generated in the browser and never sent anywhere. A card is saved as a
+file encrypted with AES-GCM, using a key derived from your password with PBKDF2-SHA256
+(600,000 iterations). Signing runs in a Web Worker using `@noble/post-quantum`.
+
+## Repository
+
+```
+contracts/   Writ.sol (one file: no owner, no proxy, no pause) + Foundry tests
+shared/      TypeScript digest and nonce code, byte-matched to the contract with fixtures
+scripts/     deploy, rehearse (free eth_call dry run), demo flow, optional keeper
+web/         the app (Vite + React + wagmi)
+deployments/ addresses, transactions and verification records
+```
 
 ## Tests
 
-**212 green:** 119 Solidity local (Foundry's count) · 7 against live Arc
-testnet · 22 TypeScript parity · 64 web. Five invariant campaigns, 4,096 calls, zero reverts. Every
-external function, every custom error and every event is exercised: **16/16,
-25/25, 14/14**.
+**212 passing:** 119 Solidity (local) · 7 against live Arc testnet · 22 TypeScript parity · 64 web.
+The suites include 5 fuzzed invariants and an adversarial audit suite
+(`WritAudit.t.sol`). Every function, custom error and event in the contract is exercised.
 
 ```sh
 npm ci && npm --prefix web ci
-npm test                  # TypeScript: digest and EIP-3009 nonce parity with the contract
-npm run test:sol          # Solidity: unit, adversarial, audit and invariant suites
-npm run test:fork         # Solidity against LIVE Arc testnet — see the warning below
-npm --prefix web test     # web: lib + page render tests
-npm --prefix web run build
+npm test                  # TypeScript digest + nonce parity with the contract
+npm run test:sol          # Solidity: unit, adversarial, audit, invariant
+npm run test:fork         # Solidity against LIVE Arc testnet
+npm --prefix web test     # web
 ```
 
-> **The fork tests do not run under a plain `forge test`.** They are gated on
-> `block.chainid == 5042002` and **skip silently** without `--fork-url`, so a
-> bare run prints `0 failed` while the tests that matter most — the ones that put
-> a real signature in front of Arc's real post-quantum precompile — never
-> executed. Always run `npm run test:fork` before believing the suite is green.
->
-> They work this way because Arc's precompiles are native node code: on a forge
-> fork `0x1800…0004` holds a placeholder byte, so the verification is sent to the
-> real node as an `eth_call` and the verdict is replayed into the fork with an
-> exact-calldata `vm.mockCall`. If Writ sent any other bytes no mock would match,
-> the call would hit the placeholder and revert — so a passing PQ action proves
-> Writ sent exactly the bytes the real precompile judged.
-
-`contracts/test/WritAudit.t.sol` is a ground-up audit suite written to break the
-contract rather than confirm it. Four findings are documented below; six
-behaviours are proven sound and locked as regressions, including that an executor
-cannot profit by inflating `tx.gasprice` (uncapped the net is exactly the tip at
-any gas price; once the cap binds, raising it only shrinks the net).
+> A plain `forge test` **skips** the fork tests. Run `npm run test:fork` to put real
+> signatures in front of Arc's real precompile. A forge fork can't execute Arc's native
+> precompiles, so the test asks the live node for the verdict and replays it with an
+> exact-calldata mock. A passing test therefore proves Writ sent exactly the bytes Arc
+> judged.
 
 ## Deployed version
 
-The address above is verified on Sourcify as an exact match for the source it was
-deployed from. It is **one commit behind this repo**: an audit of the fee meter
-found that the last payable period of an order paid the beneficiary in full and
-left the executor nothing, so a rational executor would simulate it, see a zero
-fee and never submit it. `execute` now reserves the fee alongside the payment.
+The mainnet contract is an exact Sourcify match for the source it was deployed from,
+which is **one fix behind this repo**. The audit found that an order's last payment left
+the executor no fee, so nobody would trigger it. The repo now reserves the fee alongside
+each payment (§5.4 of the spec). The ABI is unchanged, so the app works with both versions.
+Redeploying is the next step.
 
 ```
 repo build   0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c
 deployed     0xff7e06f46d0883be5d723c6b8614036dbe5eaf105f7cd73fd6f94ac8eff2fe9f
 ```
 
-Redeploying and re-verifying is the next step; this note exists so the difference
-is stated rather than discovered. The ABI is unchanged, so the live app above
-works against either. The fix and its reasoning are in
-`contracts/test/WritAudit.t.sol` and §5.4 of the spec.
+## What it does not claim
 
-## What this does not claim
-
-- **Not quantum-safe spending.** Funding and execution are ordinary ECDSA. Arc
-  has no native post-quantum transaction signing yet. The post-quantum property
-  covers **amendment authority only.**
-- **`reclaim` does not settle unpaid periods first.** Thirty days after the end
-  date, the funding wallet can take back whatever is left, including money for
-  payments that came due and nobody collected. `execute` is permissionless, so
-  anyone can collect at any time before then, and the app shows the beneficiary a
-  **collect before** date. Documented rather than quietly changed.
-- **A Completed order whose payer is later blocklisted strands its remainder.**
-  An Active order can be amended and paid down; Completed has no route out.
+- **Spending isn't quantum-safe.** Funding and execution use ordinary ECDSA. The post-quantum property covers **changing the order** only.
+- **`reclaim` doesn't pay overdue periods first.** Thirty days after the end date, the payer can take back what is left, including due payments nobody collected. The app shows the beneficiary a **collect before** date.
 - **No protection if both keys are compromised.**
-- **No yield on idle balances.** USYC supply on Arc is zero and access is gated
-  to non-US institutions at a $100,000 minimum. Adding lending risk to a safety
-  product is the wrong trade.
-- **Circle can freeze this contract** and strand every balance. Unavoidable on a
-  chain whose native asset is USDC.
-- **No users.** This is a proof of concept with one real order running.
+- **Circle can freeze the contract.** That is unavoidable on a chain whose native asset is USDC.
+- **No yield on idle balances**, and **no users yet**: this is a proof of concept with one real order running.
+- **Arc has no searchers yet**, so `npm run keeper -- --mainnet --id 2` (or `--once` under cron) keeps a demo order paid on time.
 
 ## Prior art
 
-Writ is not an unclaimed niche, and this is the field rather than a gap. Projects
-using the same precompile: [`arc-guard`](https://github.com/Jayanthkoppala/arc-guard)
-(two-key USDC box, whose 30-day exit pattern Writ borrows and credits),
-[`interlock`](https://github.com/Iniwura/interlock),
-[`ArcMandate`](https://github.com/efeberk21/ArcMandate),
-[`leash`](https://github.com/ngjupeng/leash),
-[`pq-provenance`](https://github.com/0xHUMAN-AI/pq-provenance) (whose testing
-approach Writ borrows), `bix-arc-safesign` and `upKEEP`.
-[§16 of the spec](ARCHITECTURE.md) sets out where Writ diverges from each: the
-inverted authority model and its cost curve, quarantine as a first-class
-settlement state, and a reviewer being able to complete a post-quantum action on
-mainnet from a browser in under a minute.
-
-## The specification
-
-**[ARCHITECTURE.md](ARCHITECTURE.md)** is the complete build document. Someone
-with no prior context should be able to build Writ from it alone. Every address,
-selector, length, revert string and gas figure was verified against Arc mainnet
-with the command that produced it, so a reader can re-check rather than trust.
-Estimates and judgement calls are marked **ESTIMATE** and **ASSUMPTION** in bold.
-
-| Section | What it answers |
-| --- | --- |
-| 1–2 | The problem, and why this mechanism is correct from first principles |
-| 3 | Verified chain facts, and how to reproduce them |
-| 4–5 | System architecture and the contract in full |
-| 6–7 | The arithmetic and the user flows |
-| 8–10 | Failure modes, threat model, invariants |
-| 11 | Test plan |
-| 12–13 | Deployment runbook and cost |
-| 14–16 | Build order, known limits, competitive position |
+Other projects use the same precompile, and Writ builds on two of them. It borrows the
+30-day exit from [`arc-guard`](https://github.com/Jayanthkoppala/arc-guard) and the
+testing approach from [`pq-provenance`](https://github.com/0xHUMAN-AI/pq-provenance).
+Also see [`interlock`](https://github.com/Iniwura/interlock),
+[`ArcMandate`](https://github.com/efeberk21/ArcMandate) and
+[`leash`](https://github.com/ngjupeng/leash). [§16 of the spec](ARCHITECTURE.md) compares
+them in detail.
 
 ## Network
 
@@ -226,11 +231,6 @@ Estimates and judgement calls are marked **ESTIMATE** and **ASSUMPTION** in bold
 | --- | --- |
 | Arc mainnet | chain `5042` · `https://rpc.mainnet.arc.io` · [explorer.arc.io](https://explorer.arc.io) |
 | Arc testnet | chain `5042002` · `https://rpc.testnet.arc.io` · [explorer.testnet.arc.io](https://explorer.testnet.arc.io) |
-
-The keeper is optional. `execute` is permissionless and reimburses the caller's
-gas plus a capped tip, so a stranger is paid to run it — but Arc has no searcher
-ecosystem yet, so `npm run keeper -- --mainnet --id <id>` (or `--once` under
-cron) keeps a demo order from falling behind.
 
 ## Licence
 
