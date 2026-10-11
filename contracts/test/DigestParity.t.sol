@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {Writ} from "../src/Writ.sol";
 import {WritBase} from "./WritBase.sol";
 
-/// Writ.digestFor() must equal shared/digest.ts byte for byte (CLAUDE.md, §5.6).
+/// Writ.digestFor() must equal shared/digest.ts byte for byte (ARCHITECTURE.md §5.6).
 /// Both sides check the same committed vectors in shared/fixtures/digest.json:
 /// test/digest.test.ts for the TypeScript, this file for the contract.
 contract DigestParityTest is WritBase {
