@@ -9,7 +9,7 @@ wallet that funded the order has no way to change it.
 | | |
 | --- | --- |
 | **Live app** | **[projectwrit.vercel.app](https://projectwrit.vercel.app)** |
-| **Live order** | [order #1](https://projectwrit.vercel.app/order/2): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
+| **Live order** | [order #1](https://projectwrit.vercel.app/order/1): 0.01 USDC a day on Arc mainnet until 2026-11-01 |
 | **Contract** | [`0x9701970268ee7a5933a2d688d25f143d5099a3db`](https://explorer.arc.io/address/0x9701970268ee7a5933a2d688d25f143d5099a3db) on Arc mainnet · [Sourcify exact match](https://repo.sourcify.dev/5042/0x9701970268ee7a5933a2d688d25f143d5099a3db) |
 | **Spec** | [ARCHITECTURE.md](ARCHITECTURE.md): the full build document, with the command behind every chain fact |
 
@@ -50,7 +50,7 @@ on the compromised machine.
 
 ## Try to steal it
 
-Open the [live order](https://projectwrit.vercel.app/order/2) and press **Try to hijack
+Open the [live order](https://projectwrit.vercel.app/order/1) and press **Try to hijack
 this order**. The app runs what a thief holding the funding wallet would try, as free
 `eth_call` simulations against the live contract. Nothing is signed and nothing is sent.
 
@@ -107,17 +107,17 @@ stateDiagram-v2
 
 ## Why the key card guards the rule, not the payment
 
-Other projects using Arc's post-quantum precompile require a signature on **every
-movement of money**. Writ requires it only to **change the rule**. After that, payments
-are permissionless and cheap.
+A post-quantum signature is required only to **change the rule**, never to move money
+under it. After the order exists, payments are permissionless and cost a fraction of a
+cent, so the expensive key is needed almost never.
 
 Measured on Arc mainnet against the live contract, at 21 gwei:
 
 | Action | Who | Gas | Cost | Receipt |
 | --- | --- | ---: | ---: | --- |
-| Open and fund (one tx, EIP-3009) | payer | 285,437 | $0.0060 | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db3efda954c3369d4b56be8781) |
-| Pay one period (`execute`) | anyone | 125,716 | $0.0026, refunded | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db7071eee626936807f344e246) |
-| Key card action (`cancelByPq`, verified on-chain) | key card | 434,264 | $0.0091 | [tx](https://explorer.arc.io/tx/0x9701970268ee7a5933a2d688d25f143d5099a3db772fae5023014c1e38dceb68) |
+| Open and fund (one tx, EIP-3009) | payer | 285,555 | $0.0060 | [tx](https://explorer.arc.io/tx/0x48bfe9ce5daa9b29d406b047099199fda855c116bdba6713788ba3fb9ded0297) |
+| Pay one period (`execute`) | anyone | 125,895 | $0.0026, refunded | [tx](https://explorer.arc.io/tx/0xd9044d50ad0d879d142b855c8ec8e646a647e3749879ca8848200a6277a1af12) |
+| Key card action (`rotateKey`, verified on-chain) | key card | 398,989 | $0.0084 | [tx](https://explorer.arc.io/tx/0xed7c7e26aff4bafea5ce7625a985023b21c5376fd3f44fab5423b19abae0b9b3) |
 
 Take a monthly order that runs for 10 years, so 120 payments. With Writ, the key card is
 needed **0–3 times**. With a signature on every payment, it is needed **120 times**,
@@ -157,7 +157,7 @@ and key cards are created and used in the browser.
 | [`/`](https://projectwrit.vercel.app) | See the live order card, read straight from the chain |
 | [`/how`](https://projectwrit.vercel.app/how) | See the three ideas, each with a link to check it on-chain |
 | [`/open`](https://projectwrit.vercel.app/open) | Create an order: set who gets paid, how much and how often, make a key card, then sign once |
-| [`/order/:id`](https://projectwrit.vercel.app/order/2) | See its progress and pay it if due, try to hijack it, use the key card, or manage it as the payer |
+| [`/order/:id`](https://projectwrit.vercel.app/order/1) | See its progress and pay it if due, try to hijack it, use the key card, or manage it as the payer |
 
 **Key cards** are generated in the browser and never sent anywhere. A card is saved as a
 file encrypted with AES-GCM, using a key derived from your password with PBKDF2-SHA256
@@ -195,16 +195,18 @@ npm --prefix web test     # web
 
 ## Deployed version
 
-The mainnet contract is an exact Sourcify match for the source it was deployed from,
-which is **one fix behind this repo**. The audit found that an order's last payment left
-the executor no fee, so nobody would trigger it. The repo now reserves the fee alongside
-each payment (§5.4 of the spec). The ABI is unchanged, so the app works with both versions.
-Redeploying is the next step.
+The deployed contract **is** this repo, built from this source. Sourcify reports an
+exact match on both the creation and the runtime bytecode, and `npm run sync -- --mainnet`
+refuses to pass unless the local build, the deployment record and the chain all agree:
 
 ```
-repo build   0x9701970268ee7a5933a2d688d25f143d5099a3db9a83650f3a55092642b3cb3c
-deployed     0x9701970268ee7a5933a2d688d25f143d5099a3db5f7cd73fd6f94ac8eff2fe9f
+repo build   0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c
+deployed     0x0079d64ba2f5d3c6b3dc71359ce113527815d69e9a83650f3a55092642b3cb3c
 ```
+
+Superseded: [`0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652`](https://explorer.arc.io/address/0xFF70bc435C29400Fe5c988B92dcc6c17d98B5652).
+It predates the fix for an order's last payment leaving the executor no fee, so nobody
+would have triggered it (§5.4). The ABI did not change.
 
 ## What it does not claim
 

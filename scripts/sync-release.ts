@@ -80,7 +80,27 @@ async function main() {
   if (MAINNET) {
     const rPath = "README.md";
     let r = read(rPath);
-    r = r.replace(/0x[0-9a-fA-F]{40}/g, (m) => (m.length === 42 && /^0x(FF70|[0-9a-fA-F]{4})/.test(m) ? addr : m));
+    // Replace ONLY a superseded contract address, and only where it stands as a
+    // whole address.
+    //
+    // The first version of this matched /0x[0-9a-fA-F]{40}/ with no trailing
+    // boundary, so it also matched the first 42 characters of every 66-character
+    // transaction hash and keccak hash in the file and rewrote them — producing
+    // dead explorer links and runtime hashes that were pure fiction. Its guard,
+    // /^0x(FF70|[0-9a-fA-F]{4})/, was no guard at all: the second alternative
+    // matches any hex. Hence the lookahead, and an explicit list of what may be
+    // replaced rather than a pattern that decides for itself.
+    const superseded = new Set<string>(
+      (dep.previous ?? []).map((p: { writ?: string }) => (p.writ ?? "").toLowerCase()).filter(Boolean),
+    );
+    // A line that calls an address superseded is history, not staleness: the
+    // README names the previous deployment on purpose so a reader can see what
+    // changed. Rewriting it there would make the sentence contradict itself.
+    r = r.split("\n").map((line) =>
+      /superseded/i.test(line)
+        ? line
+        : line.replace(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g, (m) => (superseded.has(m.toLowerCase()) ? addr : m)),
+    ).join("\n");
     if (liveId) r = r.replace(/\/order\/\d+\?net=mainnet/g, `/order/${liveId}?net=mainnet`)
                      .replace(/\[order #\d+\]/g, `[order #${liveId}]`);
     // The "Deployed version" block only exists while the repo is ahead of the
