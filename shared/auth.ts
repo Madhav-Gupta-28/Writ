@@ -25,7 +25,7 @@ export interface Terms {
 }
 
 /** keccak256(abi.encode(t)). Terms is all static fields, so this is the 8 words in order. */
-export function termsHash(t: Terms): Hex {
+function termsHash(t: Terms): Hex {
   return keccak256(
     encodeAbiParameters(
       [

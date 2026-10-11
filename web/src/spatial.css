@@ -104,7 +104,6 @@ h1 em, h2 em, .display em, .hero h1 em { color: var(--accent-display); }
 .nav a { border-radius: 4px; padding: 8px 12px; color: var(--text); font-weight: 500; }
 .nav a:hover { background: var(--surface-2); text-decoration: none; }
 .find input { border-radius: 4px; background: var(--surface-3); }
-.net-badge { border-radius: 4px; padding: 6px 11px; color: var(--text); border-color: var(--ink); background: transparent; }
 
 /* ---------------------------------------------------------------- controls */
 .btn {
@@ -130,8 +129,6 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
 .choice:has(input:checked) { border-color: var(--ink); background: var(--accent-soft); }
 .status, .note { border-radius: var(--radius-sm); }
 .badge { border-radius: 4px; }
-.pill { border-radius: 4px; color: var(--text); border-color: var(--ink); }
-.pill-accent { color: var(--ink); background: var(--accent); border-color: var(--ink); }
 .dot { box-shadow: none; }
 .live-dot::before { box-shadow: none; }
 .progress > span { background: var(--accent); }
@@ -297,7 +294,7 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
 }
 .pipe-line i:nth-child(2) { animation-delay: -0.87s; }
 .pipe-line i:nth-child(3) { animation-delay: -1.73s; }
-@keyframes flow { to { left: 105%; } }
+@keyframes flow { to { left: 105%; }}
 .pipe-label { position: absolute; top: -28px; font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-2); white-space: nowrap; }
 .pipe-dashed .pipe-line { background: repeating-linear-gradient(90deg, var(--ink) 0 6px, transparent 6px 12px); }
 
@@ -380,9 +377,6 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
 .tl-bar { border-radius: 2px; background: var(--surface); border-color: var(--border-strong); }
 .tl-bar[data-state="paid"] { background: var(--ink); border-color: var(--ink); }
 .tl-bar[data-state="due"] { background: var(--accent); border-color: var(--ink); }
-
-/* ============================================================ order / open */
-.order-head h1 { font-size: clamp(2rem, 3.6vw, 2.8rem); }
 .countdown { font-family: var(--display); font-weight: 850; letter-spacing: -0.025em; }
 .countdown.due { color: var(--accent-display); }
 .result-blocked { border-radius: var(--radius-sm); }
@@ -409,9 +403,8 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
   .keys-front { margin: -20px 12px 0; }
   .sig-stats { grid-template-columns: 1fr; }
   .stage-frozen { grid-template-columns: 1fr; }
-  .nothave { grid-template-columns: 1fr 1fr; }
-}
-@keyframes flow-down { from { top: -10%; } to { top: 105%; } }
+  .nothave { grid-template-columns: 1fr 1fr; }}
+@keyframes flow-down { from { top: -10%; } to { top: 105%; }}
 @media (max-width: 560px) {
   .container { padding: 0 16px; }
   .topbar-inner { height: auto; padding-block: 10px; }
@@ -434,8 +427,7 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
   .nothave { grid-template-columns: 1fr; }
   .live-cta { padding: 26px 22px; box-shadow: var(--hard); }
   .tl { padding: 22px 18px; }
-  .tl-bars { height: 52px; gap: 3px; }
-}
+  .tl-bars { height: 52px; gap: 3px; }}
 
 /* ======================================================= reduced motion */
 @media (prefers-reduced-motion: reduce) {
@@ -531,8 +523,7 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
   .ov-side { position: static; padding-top: 0; }
   .ov-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 20px; }
   .ov-stats > div, .ov-stats > div:first-child { padding: 0; border: 0; }
-  .ov-stats > div:last-child { grid-column: 1 / -1; }
-}
+  .ov-stats > div:last-child { grid-column: 1 / -1; }}
 @media (max-width: 560px) {
   .ov-board-in { padding-inline: 16px; }
   .ov-bars { height: 56px; gap: 3px; }
@@ -540,8 +531,7 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
   .ov .pay-card > * { margin-inline: 18px; }
   .ov .pay-card > .eyebrow:first-child { padding: 12px 18px; }
   .ov .tab { flex: 0 0 auto; }
-  .ov-legend-r { margin-left: 0; }
-}
+  .ov-legend-r { margin-left: 0; }}
 
 /* ========================================================= the new order page
    The form beside its result. Numbered steps on the left, filled in order;
@@ -632,12 +622,10 @@ input:focus, select:focus { outline: 2px solid var(--ink); border-color: var(--i
 
 @media (max-width: 960px) {
   .mk { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "steps" "side"; }
-  .mk-side { position: static; }
-}
+  .mk-side { position: static; }}
 @media (max-width: 560px) {
   .mk .slab-head { padding: 14px 16px; font-size: 1.12rem; flex-wrap: wrap; }
   .mk .slab-body { padding: 16px; }
   .mk-draft { box-shadow: var(--hard); }
   .mk-row, .mk-draft-head, .mk-rule { padding-inline: 16px; }
-  .mk .make-bar { padding: 18px 16px; }
-}
+  .mk .make-bar { padding: 18px 16px; }}

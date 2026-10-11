@@ -164,9 +164,9 @@ describe("OpenOrder", () => {
     expect(suggestedFeeCap(100_000_000n)).toBe(50_000n); // ceiling
     expect(suggestedFeeCap(2_000n)).toBe(1_000n); // never >= the payment
   });
-  // The bar used to print "— USDC" in the display face over a dead button
-  // whenever the form was incomplete. A giant placeholder reads as a broken
-  // number, not an empty one.
+  // An incomplete form must never render a placeholder total. A dash set in the
+  // display face reads as a broken number rather than an empty one, so the bar
+  // names what is missing instead.
   it("names what is missing instead of printing a placeholder total", async () => {
     const { OpenOrder } = await import("./Open");
     renderPage(<OpenOrder />, { route: "/open" });

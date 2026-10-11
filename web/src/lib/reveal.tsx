@@ -1,10 +1,9 @@
 // The three ways a figure on this site is allowed to move, in one place.
 //
-// Ported from Rialto, including the bug its comment records: each of these was
-// once written out longhand per figure, and every copy started its interval
-// inside the observer callback where the effect's cleanup could not see it.
-// Leaving the page mid-animation left a timer running against a component that
-// no longer existed, still calling setState.
+// Every interval here is started inside the effect and cleared by its cleanup.
+// A timer started in an observer callback is invisible to that cleanup, so
+// leaving the page mid-animation leaves it running against a component that no
+// longer exists, still calling setState.
 //
 // Visible is the default, hidden is the exception. A figure starts finished and
 // is only taken back to its first frame when all of these hold:
@@ -14,9 +13,9 @@
 // That way a figure is never stranded half-drawn: not when the observer never
 // fires (old webviews, some in-app browsers), not in a full-page screenshot,
 // not in print, and not when it is already on screen at load, where hiding it
-// would only flash it. The earlier version started every figure at its first
-// frame and waited for the observer, so anything that stopped the observer left
-// the diagram at 14% opacity: "nearly invisible".
+// would only flash it. Starting every figure at its first frame and waiting for
+// the observer is the trap: anything that stops the observer then strands the
+// diagram at 14% opacity, which reads as nearly invisible rather than as still.
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -43,7 +42,7 @@ function belowFold(el: Element) {
  * scrolled to. A scroll check backs up the observer, so a browser whose
  * IntersectionObserver never reports still reveals the figure.
  */
-export function useSeen<T extends HTMLElement>(rootMargin = "-70px") {
+function useSeen<T extends HTMLElement>(rootMargin = "-70px") {
   const ref = useRef<T>(null);
   const [seen, setSeen] = useState(true);
 
@@ -116,26 +115,6 @@ export function useSteps<T extends HTMLElement>(total: number, ms: number, rootM
   }, [seen, total, ms]);
 
   return [ref, n] as const;
-}
-
-/** Whether the element is on screen *now*, for a figure that loops rather than assembling. */
-export function useVisible<T extends HTMLElement>(rootMargin = "-70px") {
-  const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (!canObserve()) {
-      setVisible(true);
-      return;
-    }
-    const io = new IntersectionObserver(([e]) => setVisible(!!e?.isIntersecting), { rootMargin });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [rootMargin]);
-
-  return [ref, visible] as const;
 }
 
 /** Lifts its children in once, when the reader reaches them. Visible unless it will provably animate. */

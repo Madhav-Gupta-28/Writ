@@ -75,13 +75,12 @@ export const REIMBURSE_OVERHEAD = 30_000n;
 export const EXECUTE_GAS = 125_716n; // measured on Arc mainnet, order #2's first payment (see measured.ts)
 
 /**
- * This app is mainnet-only.
+ * This app is mainnet-only, and `?net=` is ignored rather than honoured.
  *
- * It used to offer a network switcher. A judge opening the site landed on
- * testnet by default and saw play money, which undersells the one fact worth
- * selling: the contract is deployed, funded and running on Arc mainnet. A
- * chooser also asks a visitor to make a decision before they know what the
- * product is.
+ * The one fact worth selling is that the contract is deployed, funded and
+ * running on Arc mainnet; a chooser both buries that and asks a visitor to
+ * decide something before they know what the product is. Ignoring the query
+ * parameter also means a stale testnet link cannot quietly show play money.
  *
  * The testnet entry stays in NETWORKS because the test harness and the deploy
  * scripts target it, but nothing in the UI can reach it, and `?net=testnet` is

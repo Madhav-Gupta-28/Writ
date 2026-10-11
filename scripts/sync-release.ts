@@ -83,13 +83,12 @@ async function main() {
     // Replace ONLY a superseded contract address, and only where it stands as a
     // whole address.
     //
-    // The first version of this matched /0x[0-9a-fA-F]{40}/ with no trailing
-    // boundary, so it also matched the first 42 characters of every 66-character
-    // transaction hash and keccak hash in the file and rewrote them — producing
-    // dead explorer links and runtime hashes that were pure fiction. Its guard,
-    // /^0x(FF70|[0-9a-fA-F]{4})/, was no guard at all: the second alternative
-    // matches any hex. Hence the lookahead, and an explicit list of what may be
-    // replaced rather than a pattern that decides for itself.
+    // The lookahead is load-bearing: without it the pattern also matches the
+    // first 42 characters of every 66-character transaction hash and keccak hash
+    // in the file, rewriting them into dead explorer links and runtime hashes
+    // that are pure fiction. Equally load-bearing is replacing only addresses the
+    // deployment record names, rather than letting a pattern decide for itself
+    // what looks like a stale address.
     const superseded = new Set<string>(
       (dep.previous ?? []).map((p: { writ?: string }) => (p.writ ?? "").toLowerCase()).filter(Boolean),
     );

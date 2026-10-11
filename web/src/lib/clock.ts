@@ -1,10 +1,9 @@
 // Chain time, and the one way this site renders a duration.
 //
-// Both of these lived inside OrderView until the hero plate needed the same
-// countdown. Copying them would have put a second one-second interval on the
-// landing page — which is the bug lib/reveal.tsx was written to stop: every
-// figure that owned its own timer eventually leaked one. There is one of each,
-// here, and every caller shares it.
+// There is deliberately one of each, shared by every caller. Giving a second
+// component its own copy would put a second one-second interval on the page,
+// and a timer owned by a component is a timer that outlives it — the leak
+// lib/reveal.tsx exists to prevent.
 
 import { useEffect, useState } from "react";
 

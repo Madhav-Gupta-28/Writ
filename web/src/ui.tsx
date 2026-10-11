@@ -21,14 +21,6 @@ export function NetLink({ to, children, className }: { to: string; children: Rea
   return <Link className={className} to={net ? `${to}${to.includes("?") ? "&" : "?"}net=${net}` : to}>{children}</Link>;
 }
 
-export function Spinner({ label }: { label?: string }) {
-  return (
-    <span className="row" role="status" aria-live="polite">
-      <span className="spinner" aria-hidden="true" />
-      {label && <span>{label}</span>}
-    </span>
-  );
-}
 
 export function StatusLine({ status, net }: { status: TxStatus; net: Network }) {
   if (status.kind === "idle") return null;
@@ -77,19 +69,6 @@ export function StateBadge({ state }: { state: OrderState }) {
   return <span className={`badge badge-${state.toLowerCase()}`}><Icon size={14} />{text}</span>;
 }
 
-export function Card({ title, children, className, eyebrow }: { title?: ReactNode; children: ReactNode; className?: string; eyebrow?: string }) {
-  return (
-    <section className={`card ${className ?? ""}`}>
-      {(eyebrow || title) && (
-        <div style={{ marginBottom: 16, display: "grid", gap: 4 }}>
-          {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-          {title && <h2>{title}</h2>}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
 
 export function Field({ label, hint, children, error }: { label: string; hint?: ReactNode; children: ReactNode; error?: string | null }) {
   return (

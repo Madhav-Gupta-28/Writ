@@ -1,14 +1,13 @@
 // The landing page: five beats, and the text is only ever a caption.
 //
-// The rule that governs every edit here: nobody reads a landing page. A judge
+// The rule that governs every edit here: nobody reads a landing page. A reader
 // arrives with thirty seconds and arrives sceptical. So every claim is either a
-// picture, a number, or a link to the chain — and no paragraph runs past two
+// picture, a number, or a link to the chain, and no paragraph runs past two
 // lines.
 //
-// The headline used to be three imperatives ("Set it once. Steal the wallet.
-// It still pays."). It was punchy and it explained nothing: you had to already
-// know what the product was for it to land. This one states the product and
-// the surprise in one sentence, and the plate beside it proves the surprise.
+// The headline has to state the product and the surprise in one sentence. A
+// headline that is only punchy fails the reader who does not already know what
+// this is — and the plate beside it exists to prove the surprise.
 
 import { Link } from "react-router-dom";
 import { ArrowRight, ServerOff, ShieldCheck, ShieldX } from "lucide-react";
@@ -24,9 +23,9 @@ const MAINNET = NETWORKS.mainnet;
 const live = MAINNET.featuredOrder;
 const order = live !== null ? `/order/${live}` : "/open";
 
-// Every stat says where it came from. The first two are receipts of real
-// transactions on Arc mainnet (see measured.ts); they used to be pre-launch
-// estimates ($0.0022, 433,953 gas) that no transaction ever produced.
+// Every stat says where it came from: the first two are receipts of real
+// transactions on Arc mainnet (see measured.ts). No number on this page is an
+// estimate, because a figure a reader cannot check is worth less than none.
 const ex = MAINNET.explorer;
 // The hero already states the cost of a payment, the signature size and the
 // zero servers, so the band carries the other measured numbers.

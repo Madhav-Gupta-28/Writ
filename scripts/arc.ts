@@ -51,7 +51,7 @@ const pk = process.env.PRIVATE_KEY?.trim();
 if (!pk) throw new Error("PRIVATE_KEY missing from .env (run with: node --env-file=.env ...)");
 export const payer = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as Hex);
 
-export const arcChain = defineChain({
+const arcChain = defineChain({
   id: NET.id,
   name: NET.name,
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
@@ -71,7 +71,7 @@ export const clock = (t: bigint) => new Date(Number(t) * 1000).toISOString().rep
 
 let armed = !MAINNET;
 /** Must run before anything is broadcast. On mainnet: loud banner + 5 s to Ctrl-C. */
-export async function beforeSend() {
+async function beforeSend() {
   if (armed) return;
   console.log("\n>>> MAINNET: about to send real transactions from " + payer.address + ". Ctrl-C within 5 s to abort.");
   await sleep(5000);

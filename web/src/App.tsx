@@ -1,13 +1,9 @@
 // The shell: a bar, the routes, and a footer.
 //
-// Three things used to live in the bar and no longer do. A network switcher,
-// which asked a visitor to choose between mainnet and testnet before they knew
-// what the product was, and defaulted them to play money. A standing "real
-// money" banner. And an ARC MAINNET badge beside the connect button.
-//
-// All three said the same thing, and the site is mainnet-only (see config.ts),
-// so the network is now stated exactly once, in the footer. A fact repeated on
-// every page in three places is furniture, not information.
+// The app is mainnet-only (see config.ts), and the network is named exactly
+// once, in the footer. A fact that never varies, repeated on every page, is
+// furniture rather than information — so the bar carries no network chooser,
+// no badge and no standing banner.
 
 import { useLayoutEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";

@@ -22,7 +22,7 @@ export const TEST_BENEFICIARY = "0x1258B1672e410636B2330cB9e7e6370F43B6C6c5" as 
 // pins every wagmi hook to that exact shape. A config built with the mock
 // connector is structurally different, so it is cast back to the registered
 // type: the hooks only ever read account/chain state, which is identical.
-export const testWagmiConfig = createConfig({
+const testWagmiConfig = createConfig({
   chains: [arcTestnet, arcMainnet],
   connectors: [mock({ accounts: [TEST_PAYER], features: { reconnect: true } })],
   transports: {

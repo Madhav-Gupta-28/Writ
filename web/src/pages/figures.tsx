@@ -1,9 +1,11 @@
 // The two live figures: the hero plate (the order as a document) and the
-// schedule (the order's real payments). Both read live order #2 on Arc mainnet.
+// schedule (the order's real payments). Both are read from the live order on
+// Arc mainnet rather than drawn, so neither can drift from what the chain says.
 //
-// The illustrative SVG figures that used to live here were replaced by the
-// spatial scenes in pages/spatial.tsx: an SVG on a fixed viewBox shrinks its
-// type with its frame, which is what made them look squeezed.
+// They are HTML, not SVG. The illustrative diagrams are in pages/spatial.tsx;
+// an SVG on a fixed viewBox scales its type down with its frame, which is what
+// makes a diagram look squeezed on a narrow screen. A figure carrying live
+// numbers has to stay legible at every width, so it reflows like a document.
 
 import type { CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
