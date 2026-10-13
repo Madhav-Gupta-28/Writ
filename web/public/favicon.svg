@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="4" fill="#e4531b" stroke="#111" stroke-width="2"/><path d="M8 10l3.2 12L16 12l4.8 10L24 10" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Writ">
+  <!-- The mark, simplified for a favicon: the signature rule under the W is
+       4.7% of the width, which is sub-pixel at 16px and turns to mud, so it is
+       dropped here and the stroke is thickened to hold at tab size. -->
+  <rect x="18" y="18" width="476" height="476" rx="58"
+        fill="#e4531b" stroke="#111111" stroke-width="28"/>
+  <path d="M116 158 L190 374 L256 190 L322 374 L396 158"
+        fill="none" stroke="#111111" stroke-width="52"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

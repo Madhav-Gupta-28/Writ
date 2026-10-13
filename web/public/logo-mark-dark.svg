@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Writ">
+  <title>Writ</title>
+  <!-- The seal: signal orange, hard ink border, no gradient and no shadow. The
+       whole visual language is a stamp pressed into paper, not a glossy icon. -->
+  <rect x="18" y="18" width="476" height="476" rx="58"
+        fill="#e4531b" stroke="#f3f1ec" stroke-width="26"/>
+  <!-- One unbroken stroke: a standing order is a single continuous
+       instruction, so the W is drawn without lifting the pen. The middle apex
+       rises to just under the outer peaks — at the earlier depth the stroke
+       width swallowed it and the letter read as lowercase. -->
+  <path d="M116 142 L190 352 L256 174 L322 352 L396 142"
+        fill="none" stroke="#111111" stroke-width="42"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- The rule you sign above on a legal instrument. Set clear of the feet so
+       it reads as a separate line rather than an underline. -->
+  <rect x="146" y="412" width="220" height="24" rx="12" fill="#111111"/>
+</svg>
